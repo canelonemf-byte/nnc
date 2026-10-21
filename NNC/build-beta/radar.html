@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>NNC Radar — Prat</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root { --bg:#070b14; --card:#10182b; --line:#243152; --txt:#e7eefc; --dim:#8ea0c4; --ok:#3dd68c; --warn:#f5c542; --bad:#ff5d6c; --cyan:#5ee7ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.4 system-ui,sans-serif; background:var(--bg); color:var(--txt); }
+  header { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; padding:.7rem 1rem; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:1rem; letter-spacing:.06em; }
+  header a { color:var(--cyan); }
+  .pill { font-size:.72rem; font-weight:700; padding:.15rem .45rem; border-radius:99px; background:#1c2742; color:var(--dim); }
+  .pill.warn { background:#3a2a10; color:var(--warn); }
+  .pill.bad { background:#3a1218; color:var(--bad); }
+  .pill.ok { background:#12351f; color:var(--ok); }
+  .layout { display:grid; grid-template-columns:1fr 340px; min-height:calc(100vh - 52px); }
+  @media(max-width:860px){ .layout { grid-template-columns:1fr; } #map { height:52vh; } }
+  #map { height:calc(100vh - 52px); background:#070b14; }
+  aside { border-left:1px solid var(--line); padding:.8rem; overflow:auto; max-height:calc(100vh - 52px); }
+  h2 { margin:.2rem 0 .4rem; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; color:var(--cyan); }
+  button, select { background:#1a2744; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:.4rem .6rem; margin:.15rem .15rem .15rem 0; }
+  button.on { background:var(--cyan); color:#041018; font-weight:700; }
+  .alert { display:none; margin:.4rem 0; padding:.45rem .55rem; border-radius:8px; background:#3a1218; color:#ffd0d4; font-size:.85rem; }
+  table { width:100%; border-collapse:collapse; font-size:.78rem; }
+  td { padding:.28rem .15rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  .dim { color:var(--dim); font-size:.8rem; }
+  .row { cursor:pointer; }
+  .row:hover { background:#18243d; }
+  .flag { color:var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>NNC RADAR</h1>
+  <span class="pill warn">CONTROL EN PAPEL</span>
+  <span class="pill" id="src">fuente: carga</span>
+  <span class="pill ok" id="nobj">0 objetos</span>
+  <span class="pill" id="nalert">0 revisiones</span>
+  <a href="index.html">Ingreso ECEF</a>
+</header>
+<div class="layout">
+  <div id="map"></div>
+  <aside>
+    <div class="alert" id="alert"></div>
+    <h2>Filtro</h2>
+    <p class="dim">WebSocket local: python3 ws_vivo.py → ws://127.0.0.1:8765/ws/flujo. El móvil no ve el servidor del sandbox.</p>
+    <button id="bWs" type="button">WebSocket</button>
+    <button id="bLive" type="button">HTTP</button>
+    <button id="bSnap" type="button" class="on">Instantánea</button>
+    <button id="bClus" type="button" class="on">Agrupar</button>
+    <select id="capa">
+      <option value="all">Todo el círculo 120 km</option>
+      <option value="prat">Solo 40 km del Prat</option>
+      <option value="flag">Solo revisión</option>
+    </select>
+    <h2>Reglas</h2>
+    <p class="dim">gs > 400 m/s bajo FL400, o Mach > 1,05 bajo FL300, o picado > 8000 ft/min. Animal descartado si v > 110 m/s. ωR no se calcula: hay R de baliza.</p>
+    <h2>Tráfico</h2>
+    <table id="lista"></table>
+    <h2>Historial local (7 días)</h2>
+    <table id="hist"></table>
+    <p class="dim">ISS es satélite, no FANI. Isolation Forest no está: fit() no acumula consciencia, etiqueta un % fijo de aviones cooperativos.</p>
+  </aside>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const PRAT = {lat:41.2974, lon:2.0833};
+const KT = 0.514444;
+const SNAP = [{"hex":"4d2248","flight":"RYR2209","t":"B738","lat":41.283269,"lon":-0.364484,"alt":38000,"gs":482.6,"track":52.32,"mach":0.788,"baro_rate":0},{"hex":"4cae61","flight":"RYR1DK","t":"B38M","lat":41.451975,"lon":-0.126023,"alt":35000,"gs":429.3,"track":182.14,"mach":0.784,"baro_rate":-128},{"hex":"710121","flight":"SVA021","t":"B77W","lat":42.072052,"lon":0.049189,"alt":33000,"gs":488.1,"track":289.88,"mach":0.848,"baro_rate":0},{"hex":"896179","flight":"UAE256","t":"B77L","lat":41.84024,"lon":0.152186,"alt":26650,"gs":458.4,"track":127.64,"mach":0.76,"baro_rate":-960},{"hex":"44cd63","flight":"OOSKC1S","t":"DA40","lat":40.51561,"lon":0.369568,"alt":2725,"gs":115.3,"track":21.89,"mach":null,"baro_rate":64},{"hex":"4d37e4","flight":"DETKM","t":null,"lat":40.354273,"lon":0.399503,"alt":875,"gs":62.8,"track":22.48,"mach":null,"baro_rate":320},{"hex":"344698","flight":"VLG15DF","t":"A320","lat":42.45066,"lon":0.464556,"alt":34975,"gs":434.7,"track":192.76,"mach":0.784,"baro_rate":0},{"hex":"345398","flight":"VLG3935","t":"A320","lat":41.552993,"lon":0.579848,"alt":31000,"gs":463.5,"track":317.19,"mach":0.78,"baro_rate":0},{"hex":"3964ea","flight":"TVF55GZ","t":"B738","lat":40.157043,"lon":0.642761,"alt":38000,"gs":456.2,"track":15.77,"mach":0.768,"baro_rate":64},{"hex":"06a0e6","flight":"QTR727","t":"A359","lat":41.495087,"lon":0.705747,"alt":37000,"gs":476.4,"track":297.64,"mach":0.852,"baro_rate":-64},{"hex":"4079f7","flight":"BAW449","t":"A20N","lat":42.56448,"lon":0.847608,"alt":37975,"gs":477.2,"track":341.3,"mach":0.78,"baro_rate":0},{"hex":"43eaae","flight":"GKY506","t":"FA7X","lat":43.000717,"lon":0.879545,"alt":41000,"gs":437.0,"track":259.05,"mach":0.804,"baro_rate":0},{"hex":"aa305f","flight":"AAL113","t":"B772","lat":40.984637,"lon":0.918857,"alt":25650,"gs":465.4,"track":265.56,"mach":0.772,"baro_rate":1024},{"hex":"4072a5","flight":"TOM9HB","t":"B738","lat":42.673366,"lon":0.939523,"alt":36000,"gs":484.7,"track":339.85,"mach":0.784,"baro_rate":0},{"hex":"3480cc","flight":"LVL2604","t":"A332","lat":40.732556,"lon":1.017172,"alt":17025,"gs":373.9,"track":73.21,"mach":0.568,"baro_rate":-1984},{"hex":"39de44","flight":"TVF77YP","t":"A20N","lat":41.047855,"lon":1.057497,"alt":38025,"gs":456.9,"track":13.67,"mach":0.776,"baro_rate":0},{"hex":"408314","flight":"TOM3MW","t":"B38M","lat":42.461879,"lon":1.082345,"alt":34000,"gs":490.0,"track":336.68,"mach":0.788,"baro_rate":0},{"hex":"ab6c08","flight":"DAL129","t":"B764","lat":41.685471,"lon":1.126099,"alt":21850,"gs":446.6,"track":276.17,"mach":0.728,"baro_rate":1536},{"hex":"0a00e3","flight":"DAH2054","t":null,"lat":42.234983,"lon":1.12629,"alt":36000,"gs":483.1,"track":343.4,"mach":0.792,"baro_rate":0},{"hex":"406cab","flight":"EXS37FA","t":"B738","lat":43.168396,"lon":1.172535,"alt":36725,"gs":486.0,"track":338.77,"mach":0.772,"baro_rate":1280},{"hex":"468d07","flight":"SEH920","t":"A20N","lat":39.596309,"lon":1.253479,"alt":36975,"gs":409.1,"track":265.79,"mach":0.772,"baro_rate":0},{"hex":"c06120","flight":"ACA823","t":"A333","lat":41.692154,"lon":1.278846,"alt":25500,"gs":377.6,"track":295.07,"mach":0.628,"baro_rate":576},{"hex":"40690d","flight":"EZY19ZA","t":"A320","lat":42.620855,"lon":1.33107,"alt":28700,"gs":465.7,"track":334.98,"mach":0.74,"baro_rate":1024},{"hex":"4cad7e","flight":"EIN5WG","t":"A20N","lat":42.518372,"lon":1.339833,"alt":31700,"gs":468.3,"track":345.79,"mach":0.748,"baro_rate":384},{"hex":"401240","flight":"EFW62ME","t":"A320","lat":39.705505,"lon":1.367081,"alt":22075,"gs":428.3,"track":354.1,"mach":0.672,"baro_rate":1280},{"hex":"4d2273","flight":"RYR12YU","t":"B738","lat":40.907822,"lon":1.423157,"alt":36825,"gs":447.7,"track":334.18,"mach":0.78,"baro_rate":896},{"hex":"4072a4","flight":"TOM61N","t":"B738","lat":40.606027,"lon":1.4565,"alt":33900,"gs":453.8,"track":338.41,"mach":0.784,"baro_rate":1152},{"hex":"34744d","flight":"VLG70EM","t":"A21N","lat":42.823151,"lon":1.546901,"alt":31750,"gs":468.4,"track":352.15,"mach":0.736,"baro_rate":1024},{"hex":"347650","flight":"EAX4E","t":"P06T","lat":41.315623,"lon":1.582219,"alt":1775,"gs":117.4,"track":20.44,"mach":null,"baro_rate":-448},{"hex":"4bb181","flight":"THY6JS","t":"B789","lat":41.238464,"lon":1.623352,"alt":37975,"gs":467.1,"track":124.27,"mach":0.844,"baro_rate":-288},{"hex":"0a00e5","flight":"DAH2012","t":null,"lat":40.639731,"lon":1.63122,"alt":15400,"gs":333.4,"track":24.26,"mach":0.5,"baro_rate":-1600},{"hex":"3cd3c6","flight":"PTN91S","t":"PC24","lat":40.84484,"lon":1.700821,"alt":14075,"gs":332.6,"track":32.35,"mach":0.488,"baro_rate":-2112},{"hex":"34660e","flight":"VOE2382","t":"A320","lat":43.132138,"lon":1.720145,"alt":37000,"gs":406.6,"track":152.3,"mach":0.78,"baro_rate":0},{"hex":"4bb21a","flight":"THY8WX","t":"A21N","lat":40.981099,"lon":1.764929,"alt":34000,"gs":466.1,"track":119.42,"mach":0.8,"baro_rate":64},{"hex":"4ca643","flight":"RYR3147","t":"B738","lat":40.930756,"lon":1.769348,"alt":8625,"gs":299.0,"track":33.26,"mach":0.44,"baro_rate":-1472},{"hex":"3c66e1","flight":"DLH05H","t":"A320","lat":41.298957,"lon":1.818362,"alt":3825,"gs":241.4,"track":212.31,"mach":0.364,"baro_rate":-640},{"hex":"4d210d","flight":"VJT617","t":"CRJ2","lat":41.229222,"lon":1.881284,"alt":2900,"gs":205.8,"track":56.7,"mach":0.308,"baro_rate":-768},{"hex":"34768e","flight":"VLG3RF","t":"A320","lat":41.364596,"lon":1.890085,"alt":7225,"gs":264.0,"track":222.7,"mach":0.412,"baro_rate":-1472},{"hex":"408347","flight":"EXS38W","t":"A21N","lat":42.538879,"lon":1.924855,"alt":32975,"gs":426.3,"track":182.02,"mach":0.788,"baro_rate":0},{"hex":"896183","flight":"UAE185","t":"A388","lat":41.113167,"lon":1.944643,"alt":5825,"gs":245.1,"track":288.8,"mach":0.372,"baro_rate":-1920}];
+const map = L.map('map', {zoomControl:true}).setView([PRAT.lat, PRAT.lon], 8);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution:'&copy; OSM &copy; CARTO', maxZoom:18
+}).addTo(map);
+L.circle([PRAT.lat, PRAT.lon], {radius:40000, color:'#5ee7ff', weight:1, fill:false}).addTo(map);
+L.circle([PRAT.lat, PRAT.lon], {radius:120000, color:'#243152', weight:1, fill:false}).addTo(map);
+L.circleMarker([PRAT.lat, PRAT.lon], {radius:5, color:'#f5c542', fillColor:'#f5c542', fillOpacity:1}).bindTooltip('Prat').addTo(map);
+let layer = L.layerGroup().addTo(map);
+let issLayer = L.layerGroup().addTo(map);
+let useSnap = true, cluster = true, current = [];
+
+function hav(a,b,c,d){
+  const R=6371, p1=a*Math.PI/180, p2=c*Math.PI/180, dp=(c-a)*Math.PI/180, dl=(d-b)*Math.PI/180;
+  const x=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function clasificar(o){
+  const gs = Number(o.gs);
+  const v = Number.isFinite(gs) ? gs*KT : null;
+  const alt = Number(o.alt);
+  const mach = Number(o.mach);
+  const rate = Number(o.baro_rate);
+  const flags = [];
+  if (v!==null && v>400 && Number.isFinite(alt) && alt<40000) flags.push('v>400 m/s bajo FL400');
+  if (Number.isFinite(mach) && mach>1.05 && Number.isFinite(alt) && alt<30000) flags.push('Mach>1.05 bajo FL300');
+  if (Number.isFinite(rate) && Math.abs(rate)>8000) flags.push('|roc|>8000 ft/min');
+  if (v!==null && v>110) flags.push('animal descartado');
+  return {v, flags, estado: flags.length? 'REVISAR' : 'COOPERATIVO'};
+}
+function loadHist(){
+  try { return JSON.parse(localStorage.getItem('nnc_hist')||'[]'); } catch(e){ return []; }
+}
+function saveHist(rows){
+  const cut = Date.now()-7*864e5;
+  localStorage.setItem('nnc_hist', JSON.stringify(rows.filter(r=>r.t>cut).slice(-80)));
+}
+function pushHist(items){
+  const h = loadHist();
+  items.filter(o=>o.estado==='REVISAR').forEach(o=>{
+    h.push({t:Date.now(), flight:o.flight||o.hex, flags:o.flags.join('; '), dist:o.dist});
+  });
+  saveHist(h);
+}
+function renderHist(){
+  const h = loadHist().slice().reverse().slice(0,8);
+  document.getElementById('hist').innerHTML = h.length? h.map(r=>`<tr><td>${r.flight}<br><span class="dim">${new Date(r.t).toLocaleString()} · ${r.flags}</span></td></tr>`).join('') : '<tr><td class="dim">Sin revisiones guardadas</td></tr>';
+}
+function draw(list){
+  layer.clearLayers();
+  const filtro = document.getElementById('capa').value;
+  let rows = list.filter(o=>Number.isFinite(o.lat));
+  if (filtro==='prat') rows = rows.filter(o=>o.dist<=40);
+  if (filtro==='flag') rows = rows.filter(o=>o.estado==='REVISAR');
+  const z = map.getZoom();
+  const doClus = cluster && z < 9;
+  if (doClus){
+    const cell = z<7 ? 0.6 : 0.25;
+    const buckets = {};
+    rows.forEach(o=>{
+      const k = Math.round(o.lat/cell)+','+Math.round(o.lon/cell);
+      (buckets[k]=buckets[k]||[]).push(o);
+    });
+    Object.values(buckets).forEach(g=>{
+      const lat = g.reduce((s,o)=>s+o.lat,0)/g.length;
+      const lon = g.reduce((s,o)=>s+o.lon,0)/g.length;
+      const bad = g.some(o=>o.estado==='REVISAR');
+      L.circleMarker([lat,lon], {radius:10, color: bad?'#ff5d6c':'#5ee7ff', fillOpacity:.35})
+        .bindTooltip(g.length+' objetos').addTo(layer);
+    });
+  } else {
+    rows.forEach(o=>{
+      const col = o.estado==='REVISAR' ? '#ff5d6c' : (Number(o.alt)>30000 ? '#5ee7ff' : '#3dd68c');
+      L.circleMarker([o.lat,o.lon], {radius:5, color:col, fillColor:col, fillOpacity:.9})
+        .bindTooltip(`${o.flight||o.hex} ${o.t||''}<br>${o.alt||'?'} ft · ${o.v?o.v.toFixed(0):'?'} m/s<br>${o.estado}`)
+        .addTo(layer);
+    });
+  }
+  document.getElementById('lista').innerHTML = rows.slice(0,18).map(o=>`<tr class="row" data-lat="${o.lat}" data-lon="${o.lon}"><td>${o.flight||o.hex||'—'}<br><span class="dim">${o.dist.toFixed(0)} km · ${o.v?o.v.toFixed(0):'?'} m/s · ${o.estado}${o.flags.length?' · <span class="flag">'+o.flags[0]+'</span>':''}</span></td></tr>`).join('');
+  document.querySelectorAll('.row').forEach(tr=>tr.onclick=()=>map.setView([+tr.dataset.lat,+tr.dataset.lon], 10));
+  const nflag = list.filter(o=>o.estado==='REVISAR').length;
+  const near = list.filter(o=>o.estado==='REVISAR' && o.dist<=40);
+  document.getElementById('nobj').textContent = list.length+' objetos';
+  document.getElementById('nalert').textContent = nflag+' revisiones';
+  const al = document.getElementById('alert');
+  if (near.length){
+    al.style.display='block';
+    al.textContent = 'Revisión a <40 km del Prat: '+near.map(o=>o.flight||o.hex).join(', ')+'. Sigue siendo tráfico con baliza, no FANI.';
+  } else al.style.display='none';
+}
+function normalize(raw, source){
+  return raw.filter(o=>o.lat!=null && o.lon!=null).map(o=>{
+    const c = clasificar(o);
+    return Object.assign({}, o, c, {dist: hav(PRAT.lat, PRAT.lon, o.lat, o.lon), fuente: source});
+  });
+}
+function show(raw, source){
+  current = normalize(raw, source);
+  document.getElementById('src').textContent = 'fuente: '+source;
+  pushHist(current);
+  draw(current);
+  renderHist();
+}
+let ws;
+function pintarIss(iss){
+  issLayer.clearLayers();
+  if (!iss) return;
+  const lat = iss.lat!=null ? iss.lat : iss.latitude;
+  const lon = iss.lon!=null ? iss.lon : iss.longitude;
+  if (lat==null) return;
+  const alt = iss.alt_km!=null ? iss.alt_km : iss.altitude;
+  const vk = iss.v_kmh!=null ? iss.v_kmh : iss.velocity;
+  const v = vk ? (vk/3.6).toFixed(0) : '?';
+  L.circleMarker([lat, lon], {radius:7, color:'#f5c542', fillColor:'#f5c542', fillOpacity:1})
+    .bindTooltip('ISS '+(alt?Math.round(alt):'?')+' km · '+v+' m/s orbital · EXPLICADO')
+    .addTo(issLayer);
+}
+function conectarWs(){
+  useSnap = false;
+  document.getElementById('bWs').classList.add('on');
+  document.getElementById('bLive').classList.remove('on');
+  document.getElementById('bSnap').classList.remove('on');
+  if (ws) { try { ws.close(); } catch(e) {} }
+  const url = (function(){
+    if (location.protocol === 'file:') return 'ws://127.0.0.1:8765/ws/flujo';
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (!location.port || location.port === '443' || location.port === '80') return proto + '//' + location.host + '/ws/flujo';
+    return proto + '//' + location.hostname + ':8765/ws/flujo';
+  })();
+  document.getElementById('src').textContent = 'fuente: conectando '+url;
+  try { ws = new WebSocket(url); }
+  catch(e) { document.getElementById('src').textContent = 'fuente: WS no disponible'; return; }
+  ws.onmessage = (ev)=>{
+    const j = JSON.parse(ev.data);
+    if (j.ac) show(j.ac, 'websocket '+ (j.utc||'').slice(11,19) + ' n='+j.n);
+    pintarIss(j.iss);
+  };
+  ws.onerror = ()=>{ document.getElementById('src').textContent = 'fuente: WS error (¿ws_vivo.py en marcha?)'; };
+  ws.onclose = ()=>{ document.getElementById('bWs').classList.remove('on'); };
+}
+document.getElementById('bWs').onclick = conectarWs;
+async function live(){
+  useSnap = false;
+  document.getElementById('bLive').classList.add('on');
+  document.getElementById('bSnap').classList.remove('on');
+  document.getElementById('bWs').classList.remove('on');
+  try {
+    const r = await fetch('https://api.adsb.lol/v2/lat/41.2974/lon/2.0833/dist/120');
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    const ac = (j.ac||[]).map(a=>({
+      hex:a.hex, flight:(a.flight||'').trim(), t:a.t, lat:a.lat, lon:a.lon,
+      alt:a.alt_baro, gs:a.gs, track:a.track, mach:a.mach, baro_rate:a.baro_rate
+    })).filter(a=>a.lat!=null);
+    show(ac, 'adsb.lol HTTP');
+  } catch(e) {
+    show(SNAP, 'instantánea (CORS/red: '+e.message+')');
+  }
+  try {
+    const r = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+    pintarIss(await r.json());
+  } catch(e) {}
+}
+document.getElementById('bLive').onclick = live;
+document.getElementById('bSnap').onclick = ()=>{
+  useSnap = true;
+  document.getElementById('bSnap').classList.add('on');
+  document.getElementById('bLive').classList.remove('on');
+  document.getElementById('bWs').classList.remove('on');
+  show(SNAP, 'instantánea 2026-10-04 adsb.lol');
+};
+document.getElementById('bClus').onclick = ()=>{
+  cluster = !cluster;
+  document.getElementById('bClus').classList.toggle('on', cluster);
+  draw(current);
+};
+document.getElementById('capa').onchange = ()=>draw(current);
+map.on('zoomend', ()=>draw(current));
+show(SNAP, 'instantánea 2026-10-04 adsb.lol');
+renderHist();
+if (location.protocol === 'https:') conectarWs();
+</script>
+</body>
+</html>

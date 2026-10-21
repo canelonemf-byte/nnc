@@ -1,0 +1,44 @@
+services:
+  nnc_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nnc-ags-core:1.0.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      NNC_HOST: 0.0.0.0
+      NNC_PORT: 8000
+      NNC_API_TOKEN: ${NNC_API_TOKEN:?Define NNC_API_TOKEN en el entorno o en .env}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  nnc_dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nnc-ags-core:1.0.0
+    command: ["python", "dashboard_server.py"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      nnc_api:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]

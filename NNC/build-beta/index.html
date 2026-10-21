@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>NNC Build Beta — Prat de Llobregat</title>
+<style>
+  :root {
+    --bg:#0b1020; --card:#141b30; --line:#2a3558; --txt:#e8eefc;
+    --dim:#93a0c2; --ok:#3dd68c; --warn:#f5c542; --bad:#ff6b6b; --acc:#6ea8fe;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:1.1rem 1.2rem; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:1.15rem; letter-spacing:.04em; }
+  header p { margin:.25rem 0 0; color:var(--dim); font-size:.9rem; }
+  .wrap { max-width:980px; margin:0 auto; padding:1rem; }
+  .grid { display:grid; gap:.8rem; grid-template-columns:1fr; }
+  @media(min-width:800px){ .grid.two { grid-template-columns:1fr 1fr; } .grid.three { grid-template-columns:1fr 1fr 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1rem; }
+  h2 { margin:0 0 .6rem; font-size:.95rem; text-transform:uppercase; letter-spacing:.08em; color:var(--acc); }
+  .pill { display:inline-block; padding:.15rem .5rem; border-radius:999px; font-size:.75rem; font-weight:700; margin:.1rem .2rem .1rem 0; }
+  .papel { background:#3a2a10; color:var(--warn); }
+  .ok { background:#12351f; color:var(--ok); }
+  .bad { background:#3a1218; color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:.88rem; }
+  th,td { text-align:left; padding:.4rem .3rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; }
+  label { display:block; color:var(--dim); font-size:.8rem; margin:.4rem 0 .15rem; }
+  input, textarea { width:100%; padding:.5rem; border-radius:8px; border:1px solid var(--line); background:#0d1428; color:var(--txt); }
+  textarea { min-height:140px; font:12px/1.4 ui-monospace,monospace; }
+  button { margin-top:.7rem; margin-right:.4rem; background:var(--acc); color:#081018; border:0; border-radius:8px; padding:.55rem .9rem; font-weight:700; cursor:pointer; }
+  button.sec { background:#243056; color:var(--txt); }
+  .out { margin-top:.8rem; padding:.7rem; background:#0d1428; border-radius:8px; white-space:pre-wrap; font-family:ui-monospace,monospace; font-size:.82rem; }
+  ul { margin:.3rem 0 0 1.1rem; color:var(--dim); }
+  .note { color:var(--dim); font-size:.88rem; }
+  .flash { display:none; margin-top:.6rem; padding:.45rem .6rem; border-radius:8px; background:#3a2a10; color:var(--warn); font-size:.85rem; }
+  .k { color:var(--dim); }
+  svg { width:100%; height:auto; background:#0d1428; border-radius:8px; }
+  .bar { height:10px; background:#0d1428; border-radius:99px; overflow:hidden; border:1px solid var(--line); }
+  .bar > span { display:block; height:100%; width:0; background:var(--bad); }
+</style>
+</head>
+<body>
+<div style="background:#1a2744; padding:8px; margin:8px; border-radius:8px; border:1px solid #243152;">
+  <strong>Fusión NNC + AGs-Core 1.0.0 corregido:</strong>
+  <a href="radar.html" style="color:#5ee7ff; margin-left:12px;">Radar Leaflet ADS-B</a>
+  <a href="dashboard_3d.html" style="color:#5ee7ff; margin-left:12px;">Dashboard 3D Globe + LoRA</a>
+  <span style="color:#8ea0c4; font-size:0.8em;"> (datos sintéticos, conectores NO conectados)</span>
+</div>
+
+<header>
+  <h1>NNC Build Beta</h1>
+  <p>Ingreso ECEF · Prat de Llobregat · no es un detector de FANI · control en papel · <a href="radar.html" style="color:#6ea8fe">Radar</a></p>
+</header>
+<div class="wrap">
+  <div class="card" style="margin-bottom:.8rem">
+    <span class="pill papel">CONTROL EN PAPEL</span>
+    <span class="pill bad" id="pillEstado">SIN PAQUETE</span>
+    <span class="pill papel" id="pillE">E0</span>
+    <p class="note" id="porque" style="margin:.6rem 0 0">Carga un paquete. Cero detecciones. QPU ausente. ISS y EZY95FN siguen explicados.</p>
+    <div class="flash" id="flash">UI: malla a volumen y flash. No es sensor.</div>
+    <button type="button" class="sec" onclick="modo('ingreso')">Ingreso</button>
+    <button type="button" onclick="modo('ojo')">Ojo dios</button>
+  </div>
+
+  <div class="card" id="ojo" style="margin-bottom:.8rem">
+    <h2>Ojo dios — vista simultánea</h2>
+    <p class="note">Adaptado del nombre GodMode (smol-ai), no del binario. Tag v1.0.0-beta.10, commit 8ac3ffd. Es un navegador Electron de chats (Cmd+Shift+G). No se ha instalado el dmg/exe/AppImage: no corre aquí y no mide ECEF.</p>
+    <table id="cmp"></table>
+    <p class="note" id="ojoNota" style="margin-top:.5rem"></p>
+  </div>
+
+  <div class="grid two" style="margin-bottom:.8rem">
+    <div class="card">
+      <h2>Volúmenes — no se mezclan</h2>
+      <svg id="mapa" viewBox="0 0 640 280" role="img" aria-label="Esquema Madrid y Prat"></svg>
+      <p class="note">Círculos de 200 km en esquema, no un mapa. Lleida es referencia, no estación.</p>
+    </div>
+    <div class="card">
+      <h2>Altitud elipsoidal</h2>
+      <div class="bar" title="posición relativa al elipsoide"><span id="hbar"></span></div>
+      <p class="note" id="halt" style="margin-top:.5rem">h pendiente</p>
+      <table id="geo"></table>
+    </div>
+  </div>
+
+  <div class="grid two" style="margin-bottom:.8rem">
+    <div class="card">
+      <h2>Cinemática declarada</h2>
+      <table id="cin"></table>
+      <p class="note">a = |v2 − v1| / Δt · G = a / 9.80665. Sin vectores no se calcula.</p>
+    </div>
+    <div class="card">
+      <h2>Para pasar el ingreso</h2>
+      <ul id="reqs"></ul>
+      <h2 style="margin-top:.8rem">H0–H7</h2>
+      <p class="note" id="hex">Cerrada hasta que el ingreso no tenga rechazo duro.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:.8rem">
+    <h2>Banderas</h2>
+    <table id="flags"><tr><td class="k">Sin auditar</td></tr></table>
+  </div>
+
+  <div class="card" style="margin-bottom:.8rem">
+    <h2>Paquete</h2>
+    <div class="grid three">
+      <div><label>X (m)</label><input id="x" type="number" step="any"/></div>
+      <div><label>Y (m)</label><input id="y" type="number" step="any"/></div>
+      <div><label>Z (m)</label><input id="z" type="number" step="any"/></div>
+    </div>
+    <label>JSON</label>
+    <textarea id="pkt" spellcheck="false"></textarea>
+    <button type="button" onclick="auditar()">Auditar ingreso</button>
+    <button type="button" class="sec" onclick="cargarRechazo()">Fixture rechazado</button>
+    <button type="button" class="sec" onclick="cargarSintetico()">Sintético Prat (E3)</button>
+    <button type="button" class="sec" onclick="bajar()">Descargar informe</button>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>Explicados</h2>
+      <table>
+        <tr><th>Objeto</th><th>v que vale</th><th>H</th></tr>
+        <tr><td>ISS 25544</td><td>7658 m/s orbital, no ωR</td><td>H3</td></tr>
+        <tr><td>EZY95FN</td><td>234 m/s ADS-B · Mach 0,79</td><td>H1</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Calculadora ω·R</h2>
+      <label>ω (rad/s)</label><input id="omega" type="number" step="any"/>
+      <label>R (m) — vacío = bloqueo</label><input id="R" type="number" step="any"/>
+      <label>Altitud (m), opcional H7</label><input id="alt" type="number" step="any"/>
+      <button type="button" onclick="calcular()">Calcular</button>
+      <div class="out" id="out">Sin R no hay v. ωR no es TAS.</div>
+    </div>
+  </div>
+  <p class="note" style="margin:1rem 0">Build Beta local · aritmética E3 · evento E0 · prohibido FANI_confirmado</p>
+</div>
+<script>
+const G0=9.80665, MACH_TERMICO=5, V_NIVEL=35, V_PICADO=110;
+const A=6378137, F=1/298.257223563, B=A*(1-F), E2=F*(2-F), EP2=(A*A-B*B)/(B*B);
+const MADRID={lat:40.4168, lon:-3.7038, r:200, nombre:"Madrid"};
+const PRAT={lat:41.3278, lon:2.0947, r:200, nombre:"Prat"};
+const REFS={Barcelona:[41.3874,2.1686], BCN_apt:[41.2971,2.0785], Martorell:[41.474,1.931], Lleida:[41.6176,0.6200]};
+const FLAG_TEXTO={
+  h_bajo_elipsoide:"h < 0: bajo el elipsoide WGS84. No es blanco atmosférico.",
+  estela_declarada_sin_3_puntos:"trail_active sin 3 posiciones. La estela es estado, no geometría.",
+  una_sola_epoca:"Una época. No hay Δt ni aceleración medible.",
+  G_declarada_no_derivable:"G declarada sin v1, v2 y Δt. La ecuación no está instanciada.",
+  G_no_cierra_con_vectores:"G declarada no cierra con |v2−v1|/Δt/g0 (tolerancia 0.05).",
+  mach_alto_sin_firma_termica:"Mach > 5 con firma térmica falsa: incompatible con vuelo en aire.",
+  mach_atmosferico_bajo_elipsoide:"Mach atmosférico no aplica bajo el elipsoide.",
+  fuera_volumen_prueba_madrid:"Fuera de Madrid r = 200 km. No se mezcla con Prat.",
+  ui_no_es_sensor:"Malla y flash son UI. No son sensor.",
+  psi_no_es_observable:"psi y nodos no están definidos como observable.",
+  sin_ecef:"Faltan X, Y, Z."
+};
+const FIXTURE={
+  timestamp_utc:"2026-10-02T00:00:00.000Z",
+  agi_cognitive_state:{system_psi_divergence:0.0001, active_nodes_tracking:500000},
+  anomaly_interception:{
+    entity_id:"anomalous_node_01",
+    spatial_data_ecef:{x_meters:4783432.125, y_meters:165432.081, z_meters:4192312.993},
+    kinematics:{velocity_mach:12.4, calculated_g_force:42.3, thermal_friction_signature:false},
+    visual_cortex_response:{mesh_converted_to_volume:true, alert_flash_active_ms:4000},
+    spatial_memory:{trail_active:true, last_breadcrumb_delta_ms:8000}
+  }
+};
+let ULTIMO=null;
+
+function ecefToLla(x,y,z){
+  const lon=Math.atan2(y,x), p=Math.hypot(x,y);
+  const theta=Math.atan2(z*A, p*B), st=Math.sin(theta), ct=Math.cos(theta);
+  const lat=Math.atan2(z+EP2*B*st**3, p-E2*A*ct**3);
+  const N=A/Math.sqrt(1-E2*Math.sin(lat)**2);
+  return {lat:lat*180/Math.PI, lon:lon*180/Math.PI, h:p/Math.cos(lat)-N, r:Math.hypot(x,y,z), N};
+}
+function llaToEcef(lat,lon,h){
+  const p=lat*Math.PI/180, l=lon*Math.PI/180, N=A/Math.sqrt(1-E2*Math.sin(p)**2);
+  return [(N+h)*Math.cos(p)*Math.cos(l),(N+h)*Math.cos(p)*Math.sin(l),((1-E2)*N+h)*Math.sin(p)];
+}
+function hav(lat1,lon1,lat2,lon2){
+  const r=Math.PI/180, dlat=(lat2-lat1)*r, dlon=(lon2-lon1)*r;
+  const a=Math.sin(dlat/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dlon/2)**2;
+  return 2*6371*Math.asin(Math.sqrt(Math.min(1,a)));
+}
+function gDesde(v1,v2,dt){
+  if(!v1||!v2||!(dt>0)||v1.length!==3||v2.length!==3) return {derivable:false,a:null,G:null};
+  const dv=Math.hypot(v2[0]-v1[0],v2[1]-v1[1],v2[2]-v1[2]);
+  return {derivable:true,a:dv/dt,G:(dv/dt)/G0};
+}
+function auditarPaquete(pkt){
+  const anom=pkt.anomaly_interception||pkt;
+  const ecef=anom.spatial_data_ecef||{}, kin=anom.kinematics||{};
+  const vis=anom.visual_cortex_response||{}, mem=anom.spatial_memory||{};
+  const flags=[];
+  const x=+ecef.x_meters, y=+ecef.y_meters, z=+ecef.z_meters;
+  if(![x,y,z].every(Number.isFinite)) return {estado:"RECHAZADO_SIN_ECEF", flags:["sin_ecef"], nivel:"E0"};
+  const lla=ecefToLla(x,y,z);
+  const sup=llaToEcef(lla.lat, lla.lon, 0);
+  lla.rsup=Math.hypot(...sup); lla.deficit=lla.rsup-lla.r;
+  const dMad=hav(lla.lat,lla.lon,MADRID.lat,MADRID.lon);
+  const dPrat=hav(lla.lat,lla.lon,PRAT.lat,PRAT.lon);
+  const refs={};
+  for(const [n,ll] of Object.entries(REFS)) refs[n]=hav(lla.lat,lla.lon,ll[0],ll[1]);
+  if(lla.h<0) flags.push("h_bajo_elipsoide");
+  const crumbs=anom.breadcrumbs||[];
+  const nPos=1+crumbs.filter(c=>c&&"x_meters" in c).length;
+  if(mem.trail_active && nPos<3) flags.push("estela_declarada_sin_3_puntos");
+  if(nPos<2) flags.push("una_sola_epoca");
+  const g=gDesde(kin.v1_ecef_m_s, kin.v2_ecef_m_s, kin.dt_s);
+  if(kin.calculated_g_force!=null && !g.derivable) flags.push("G_declarada_no_derivable");
+  if(g.derivable && kin.calculated_g_force!=null && Math.abs(g.G-kin.calculated_g_force)>0.05) flags.push("G_no_cierra_con_vectores");
+  if(kin.velocity_mach!=null && kin.velocity_mach>MACH_TERMICO && kin.thermal_friction_signature===false) flags.push("mach_alto_sin_firma_termica");
+  if(lla.h<0 && kin.velocity_mach!=null) flags.push("mach_atmosferico_bajo_elipsoide");
+  if(dMad>MADRID.r) flags.push("fuera_volumen_prueba_madrid");
+  if(Object.keys(vis).length) flags.push("ui_no_es_sensor");
+  if(pkt.agi_cognitive_state) flags.push("psi_no_es_observable");
+  const duros=new Set(["h_bajo_elipsoide","G_declarada_no_derivable","G_no_cierra_con_vectores","mach_alto_sin_firma_termica"]);
+  const tieneV=Array.isArray(kin.velocity_ecef_m_s)||Array.isArray(kin.v1_ecef_m_s);
+  let estado="ADMITIDO_A_EXCLUSION_H0_H7";
+  if(flags.some(f=>duros.has(f))) estado="RECHAZADO_INGRESO";
+  else if(nPos<3 || !tieneV) estado="DATOS_INSUFICIENTES";
+  const machEq = kin.velocity_mach==null ? null : {sl:kin.velocity_mach*340.3, tropo:kin.velocity_mach*295.1};
+  return {estado, nivel:"E0", aritmetica:"E3", lla, dMad, dPrat, refs, g, nPos, flags, kin, vis, mem, id:anom.entity_id, utc:pkt.timestamp_utc, cog:pkt.agi_cognitive_state, machEq, x,y,z};
+}
+function fila(k,v){ return "<tr><td class='k'>"+k+"</td><td>"+v+"</td></tr>"; }
+function pintar(r){
+  ULTIMO=r;
+  const pill=document.getElementById("pillEstado");
+  pill.textContent=r.estado;
+  pill.className="pill "+(r.estado.startsWith("RECHAZADO")?"bad": r.estado.startsWith("ADMITIDO")?"ok":"papel");
+  document.getElementById("pillE").textContent=r.nivel+" evento · "+r.aritmetica;
+  document.getElementById("flash").style.display = r.vis && r.vis.alert_flash_active_ms ? "block" : "none";
+  if(r.vis && r.vis.alert_flash_active_ms) document.getElementById("flash").textContent =
+    "UI "+r.vis.alert_flash_active_ms+" ms · malla→volumen = "+r.vis.mesh_converted_to_volume+". No es sensor.";
+  const duros=r.flags.filter(f=>["h_bajo_elipsoide","G_declarada_no_derivable","G_no_cierra_con_vectores","mach_alto_sin_firma_termica"].includes(f));
+  document.getElementById("porque").textContent = r.id+" · "+(r.utc||"sin utc")+" · "+(duros.length? duros.length+" rechazos duros. No es detección." : "Sin rechazo duro. Sigue sin ser un vuelo medido.");
+  const h=r.lla.h;
+  document.getElementById("hbar").style.width = Math.max(4, Math.min(100, (h+8000)/20000*100))+"%";
+  document.getElementById("hbar").style.background = h<0 ? "var(--bad)" : "var(--ok)";
+  document.getElementById("halt").textContent = "h = "+h.toFixed(2)+" m · déficit radial "+r.lla.deficit.toFixed(1)+" m respecto a la superficie local. Radio punto "+r.lla.r.toFixed(1)+" m · superficie "+r.lla.rsup.toFixed(1)+" m.";
+  document.getElementById("geo").innerHTML =
+    fila("φ / λ", r.lla.lat.toFixed(8)+"° / "+r.lla.lon.toFixed(8)+"°")+
+    fila("N(φ)", r.lla.N.toFixed(3)+" m")+
+    fila("Madrid 200 km", r.dMad.toFixed(2)+" km · dentro "+(r.dMad<=200))+
+    fila("Prat 200 km", r.dPrat.toFixed(2)+" km · dentro "+(r.dPrat<=200))+
+    fila("Barcelona", r.refs.Barcelona.toFixed(2)+" km · referencia")+
+    fila("Aeropuerto BCN", r.refs.BCN_apt.toFixed(2)+" km · referencia")+
+    fila("Martorell", r.refs.Martorell.toFixed(2)+" km · referencia")+
+    fila("Lleida", r.refs.Lleida.toFixed(2)+" km · referencia, no estación");
+  const gtxt = r.g.derivable ? r.g.G.toFixed(4)+" (a="+r.g.a.toFixed(3)+" m/s²)" : "no derivable";
+  const me = r.machEq ? r.machEq.sl.toFixed(0)+" m/s si c=340.3; "+r.machEq.tropo.toFixed(0)+" m/s si c=295.1. Orden de magnitud, no medida." : "—";
+  document.getElementById("cin").innerHTML =
+    fila("Mach declarado", r.kin.velocity_mach ?? "—")+
+    fila("Equivalente", me)+
+    fila("Firma térmica", String(r.kin.thermal_friction_signature))+
+    fila("G declarada", r.kin.calculated_g_force ?? "—")+
+    fila("G recomputada", gtxt)+
+    fila("Posiciones", r.nPos+" · estela declarada "+!!(r.mem&&r.mem.trail_active))+
+    fila("psi / nodos", r.cog ? r.cog.system_psi_divergence+" / "+r.cog.active_nodes_tracking+" · no observable" : "—");
+  document.getElementById("flags").innerHTML = r.flags.map(f=>fila(f, FLAG_TEXTO[f]||f)).join("") || fila("ninguna","sin banderas");
+  const reqs=[
+    [h>=0, "h ≥ 0"],
+    [r.nPos>=3, "≥ 3 breadcrumbs con tiempo"],
+    [r.g.derivable || r.kin.calculated_g_force==null, "G solo si v1, v2, Δt cierran"],
+    [!(r.kin.velocity_mach>5 && r.kin.thermal_friction_signature===false), "Mach > 5 exige firma térmica en aire"],
+    [!(r.vis && (r.vis.alert_flash_active_ms || r.vis.mesh_converted_to_volume)) && !r.cog, "fuente de sensor, no UI ni psi"]
+  ];
+  document.getElementById("reqs").innerHTML = reqs.map(([ok,t])=>"<li>"+(ok?"cumple":"falla")+" — "+t+"</li>").join("");
+  document.getElementById("hex").textContent = r.estado==="ADMITIDO_A_EXCLUSION_H0_H7"
+    ? "Ingreso pasado. H0–H7 siguen SIN_DATOS: no hay ADS-B, TLE, OGN ni radar en el paquete. Simulación ≠ experimento."
+    : "H0–H7 no se abren. El silencio de red no es un objeto. ω·R no es TAS ni velocidad orbital.";
+  dibujar(r);
+  document.getElementById("x").value=r.x;
+  document.getElementById("y").value=r.y;
+  document.getElementById("z").value=r.z;
+}
+function xy(lon,lat){
+  const x=(lon+4.2)/7.4*600+20, y=(42.4-lat)/2.6*240+20;
+  return [x,y];
+}
+function dibujar(r){
+  const svg=document.getElementById("mapa");
+  const pts=[["Madrid",MADRID.lon,MADRID.lat,"#6ea8fe"],["Prat",PRAT.lon,PRAT.lat,"#3dd68c"],["punto",r.lla.lon,r.lla.lat,"#ff6b6b"],["Lleida",0.62,41.6176,"#f5c542"]];
+  const km2x=600/7.4/84, km2y=240/2.6/111;
+  let s="";
+  [[MADRID,"#6ea8fe"],[PRAT,"#3dd68c"]].forEach(([p,c])=>{
+    const [x,y]=xy(p.lon,p.lat);
+    s+=`<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${(200*km2x).toFixed(1)}" ry="${(200*km2y).toFixed(1)}" fill="none" stroke="${c}" stroke-dasharray="4 3"/>`;
+  });
+  pts.forEach(([n,lo,la,c])=>{
+    const [x,y]=xy(lo,la);
+    s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${c}"/><text x="${(x+6).toFixed(1)}" y="${(y-6).toFixed(1)}" fill="${c}" font-size="12">${n}</text>`;
+  });
+  svg.innerHTML=s;
+}
+function leer(){
+  const raw=document.getElementById("pkt").value.trim();
+  if(raw) return JSON.parse(raw);
+  return {anomaly_interception:{entity_id:"manual", spatial_data_ecef:{
+    x_meters:+document.getElementById("x").value, y_meters:+document.getElementById("y").value, z_meters:+document.getElementById("z").value
+  }, kinematics:{}}};
+}
+function auditar(){
+  try { pintar(auditarPaquete(leer())); }
+  catch(e){ document.getElementById("porque").textContent="JSON inválido: "+e.message; }
+}
+function poner(pkt){ document.getElementById("pkt").value=JSON.stringify(pkt,null,2); pintar(auditarPaquete(pkt)); }
+function modo(m){
+  document.getElementById("ojo").style.display = m==="ojo" ? "block" : "none";
+  if(m==="ojo") ojo();
+}
+function ojo(){
+  const a=auditarPaquete(FIXTURE);
+  const p1=llaToEcef(41.35,2.05,11000), p2=llaToEcef(41.351,2.052,11020);
+  const v1=[200,0,0], v2=[201,0.5,0], dt=4, g=gDesde(v1,v2,dt);
+  const b=auditarPaquete({timestamp_utc:"2026-10-02T08:00:00.000Z", anomaly_interception:{
+    entity_id:"sintetico_prat_01",
+    spatial_data_ecef:{x_meters:p1[0], y_meters:p1[1], z_meters:p1[2]},
+    breadcrumbs:[
+      {t_s:0,x_meters:p1[0],y_meters:p1[1],z_meters:p1[2]},
+      {t_s:4,x_meters:p2[0],y_meters:p2[1],z_meters:p2[2]},
+      {t_s:8,x_meters:p2[0]+80,y_meters:p2[1],z_meters:p2[2]}
+    ],
+    kinematics:{velocity_mach:0.6, v1_ecef_m_s:v1, v2_ecef_m_s:v2, dt_s:dt, calculated_g_force:+g.G.toFixed(6), thermal_friction_signature:null}
+  }});
+  const fila3=(k,x,y)=>"<tr><td class='k'>"+k+"</td><td>"+x+"</td><td>"+y+"</td></tr>";
+  document.getElementById("cmp").innerHTML =
+    "<tr><th></th><th>anomalous_node_01</th><th>sintetico_prat_01</th></tr>"+
+    fila3("estado", a.estado, b.estado)+
+    fila3("nivel", a.nivel+" / "+a.aritmetica, b.nivel+" / "+b.aritmetica)+
+    fila3("h m", a.lla.h.toFixed(1), b.lla.h.toFixed(1))+
+    fila3("Madrid km", a.dMad.toFixed(1), b.dMad.toFixed(1))+
+    fila3("Prat km", a.dPrat.toFixed(1), b.dPrat.toFixed(1))+
+    fila3("G", a.g.derivable?a.g.G.toFixed(4):"no derivable", b.g.derivable?b.g.G.toFixed(4):"no")+
+    fila3("banderas", a.flags.length, b.flags.length)+
+    fila3("ISS / EZY95FN", "explicados, no este paquete", "no aplica")+
+    fila3("GodMode binario", "no instalado", "no instalado");
+  document.getElementById("ojoNota").textContent =
+    "E0–E6: idea, hipotesis, prediccion, simulacion, experimento, replica, consolidado. Este ojo es E0 de integracion y E3 de aritmetica. GodMode no aporta evidencia atmosferica. H0–H7 siguen cerradas en el fixture.";
+}
+function cargarRechazo(){ poner(FIXTURE); }
+function cargarSintetico(){
+  const p1=llaToEcef(41.35,2.05,11000), p2=llaToEcef(41.351,2.052,11020);
+  const v1=[200,0,0], v2=[201,0.5,0], dt=4, g=gDesde(v1,v2,dt);
+  poner({timestamp_utc:"2026-10-02T08:00:00.000Z", anomaly_interception:{
+    entity_id:"sintetico_prat_01",
+    spatial_data_ecef:{x_meters:p1[0], y_meters:p1[1], z_meters:p1[2]},
+    breadcrumbs:[
+      {t_s:0,x_meters:p1[0],y_meters:p1[1],z_meters:p1[2]},
+      {t_s:4,x_meters:p2[0],y_meters:p2[1],z_meters:p2[2]},
+      {t_s:8,x_meters:p2[0]+80,y_meters:p2[1],z_meters:p2[2]}
+    ],
+    kinematics:{velocity_mach:0.6, v1_ecef_m_s:v1, v2_ecef_m_s:v2, dt_s:dt, calculated_g_force:+g.G.toFixed(6), thermal_friction_signature:null}
+  }});
+}
+function bajar(){
+  if(!ULTIMO) return;
+  const blob=new Blob([JSON.stringify(ULTIMO,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="informe_ingreso_nnc.json"; a.click();
+}
+function calcular(){
+  const o=parseFloat(document.getElementById("omega").value);
+  const Rraw=document.getElementById("R").value;
+  const alt=parseFloat(document.getElementById("alt").value);
+  const el=document.getElementById("out");
+  if(Number.isNaN(o)){ el.textContent="Falta ω."; return; }
+  if(Rraw===""||!(parseFloat(Rraw)>0)){ el.textContent="CINEMATICA_NO_CERRADA\nSin distancia no hay velocidad."; return; }
+  const R=parseFloat(Rraw), v=o*R, mach=v/(331.3*Math.sqrt(288.15/273.15));
+  let bio="COMPATIBLE_ANIMAL (no afirmado)";
+  if(!Number.isNaN(alt)&&alt>8000) bio="DESCARTADO_ANIMAL (altitud)";
+  else if(Math.abs(v)>V_PICADO) bio="DESCARTADO_ANIMAL (|v|>110)";
+  else if(Math.abs(v)>V_NIVEL) bio="SOLO_PICADO_ANIMAL_O_MAQUINA";
+  el.textContent="v="+v.toFixed(3)+" m/s\nMach 15C="+mach.toFixed(3)+"\nH7="+bio+"\nωR no es TAS. No es FANI.";
+}
+cargarRechazo();
+ojo();
+</script>
+</body>
+</html>

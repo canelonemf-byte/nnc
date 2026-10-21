@@ -1,0 +1,251 @@
+{
+  "timestamp_utc": "2026-10-20T15:06:42Z",
+  "tipo_datos": "SINTETICOS_DEMO_NO_OBSERVACIONES_REALES",
+  "validacion_fisica": false,
+  "total_hotspots": 5,
+  "total_puntos_densidad": 30,
+  "rango_fechas": "2026-10-19 / 2026-10-20 (Últimas 24h)",
+  "criterio_filtro": "ESCENARIOS_DEMO_NO_CLASIFICACION_VALIDADA",
+  "puntos_mapa_calor": [
+    {
+      "lat": 41.3879,
+      "lon": 2.1699,
+      "altitud_m": 12000.0,
+      "peso": 1.0,
+      "id": "EVT-MACH50-RIGHT-ANGLE-2026",
+      "tipo": "MANIOBRA_ANGULO_RECTO_MACH50"
+    },
+    {
+      "lat": 41.3879,
+      "lon": 2.2499,
+      "altitud_m": 12000.0,
+      "peso": 0.6,
+      "id": "EVT-MACH50-RIGHT-ANGLE-2026-cluster-0",
+      "tipo": "MANIOBRA_ANGULO_RECTO_MACH50"
+    },
+    {
+      "lat": 41.4625,
+      "lon": 2.1989,
+      "altitud_m": 12000.0,
+      "peso": 0.6,
+      "id": "EVT-MACH50-RIGHT-ANGLE-2026-cluster-1",
+      "tipo": "MANIOBRA_ANGULO_RECTO_MACH50"
+    },
+    {
+      "lat": 41.4419,
+      "lon": 2.1109,
+      "altitud_m": 12000.0,
+      "peso": 0.6,
+      "id": "EVT-MACH50-RIGHT-ANGLE-2026-cluster-2",
+      "tipo": "MANIOBRA_ANGULO_RECTO_MACH50"
+    },
+    {
+      "lat": 41.3525,
+      "lon": 2.0982,
+      "altitud_m": 12000.0,
+      "peso": 0.6,
+      "id": "EVT-MACH50-RIGHT-ANGLE-2026-cluster-3",
+      "tipo": "MANIOBRA_ANGULO_RECTO_MACH50"
+    },
+    {
+      "lat": 41.3082,
+      "lon": 2.1769,
+      "altitud_m": 12000.0,
+      "peso": 0.6,
+      "id": "EVT-MACH50-RIGHT-ANGLE-2026-cluster-4",
+      "tipo": "MANIOBRA_ANGULO_RECTO_MACH50"
+    },
+    {
+      "lat": 40.4168,
+      "lon": -3.7038,
+      "altitud_m": 8500.0,
+      "peso": 0.95,
+      "id": "EVT-INVERSION-VECTOR-180DEG",
+      "tipo": "INVERSION_VECTORIAL_INSTANTANEA"
+    },
+    {
+      "lat": 40.4168,
+      "lon": -3.6238,
+      "altitud_m": 8500.0,
+      "peso": 0.57,
+      "id": "EVT-INVERSION-VECTOR-180DEG-cluster-0",
+      "tipo": "INVERSION_VECTORIAL_INSTANTANEA"
+    },
+    {
+      "lat": 40.4914,
+      "lon": -3.6748,
+      "altitud_m": 8500.0,
+      "peso": 0.57,
+      "id": "EVT-INVERSION-VECTOR-180DEG-cluster-1",
+      "tipo": "INVERSION_VECTORIAL_INSTANTANEA"
+    },
+    {
+      "lat": 40.4708,
+      "lon": -3.7628,
+      "altitud_m": 8500.0,
+      "peso": 0.57,
+      "id": "EVT-INVERSION-VECTOR-180DEG-cluster-2",
+      "tipo": "INVERSION_VECTORIAL_INSTANTANEA"
+    },
+    {
+      "lat": 40.3814,
+      "lon": -3.7755,
+      "altitud_m": 8500.0,
+      "peso": 0.57,
+      "id": "EVT-INVERSION-VECTOR-180DEG-cluster-3",
+      "tipo": "INVERSION_VECTORIAL_INSTANTANEA"
+    },
+    {
+      "lat": 40.3371,
+      "lon": -3.6968,
+      "altitud_m": 8500.0,
+      "peso": 0.57,
+      "id": "EVT-INVERSION-VECTOR-180DEG-cluster-4",
+      "tipo": "INVERSION_VECTORIAL_INSTANTANEA"
+    },
+    {
+      "lat": 38.5021,
+      "lon": 3.2045,
+      "altitud_m": -150.0,
+      "peso": 0.98,
+      "id": "EVT-TRANSMEDIO-MEDITERRANEO-2026",
+      "tipo": "TRANSICION_TRANSMEDIO_SIN_DESACELERACION"
+    },
+    {
+      "lat": 38.5021,
+      "lon": 3.2845,
+      "altitud_m": -150.0,
+      "peso": 0.59,
+      "id": "EVT-TRANSMEDIO-MEDITERRANEO-2026-cluster-0",
+      "tipo": "TRANSICION_TRANSMEDIO_SIN_DESACELERACION"
+    },
+    {
+      "lat": 38.5767,
+      "lon": 3.2335,
+      "altitud_m": -150.0,
+      "peso": 0.59,
+      "id": "EVT-TRANSMEDIO-MEDITERRANEO-2026-cluster-1",
+      "tipo": "TRANSICION_TRANSMEDIO_SIN_DESACELERACION"
+    },
+    {
+      "lat": 38.5561,
+      "lon": 3.1455,
+      "altitud_m": -150.0,
+      "peso": 0.59,
+      "id": "EVT-TRANSMEDIO-MEDITERRANEO-2026-cluster-2",
+      "tipo": "TRANSICION_TRANSMEDIO_SIN_DESACELERACION"
+    },
+    {
+      "lat": 38.4667,
+      "lon": 3.1328,
+      "altitud_m": -150.0,
+      "peso": 0.59,
+      "id": "EVT-TRANSMEDIO-MEDITERRANEO-2026-cluster-3",
+      "tipo": "TRANSICION_TRANSMEDIO_SIN_DESACELERACION"
+    },
+    {
+      "lat": 38.4224,
+      "lon": 3.2115,
+      "altitud_m": -150.0,
+      "peso": 0.59,
+      "id": "EVT-TRANSMEDIO-MEDITERRANEO-2026-cluster-4",
+      "tipo": "TRANSICION_TRANSMEDIO_SIN_DESACELERACION"
+    },
+    {
+      "lat": 41.3128,
+      "lon": 2.1023,
+      "altitud_m": 420000.0,
+      "peso": 0.92,
+      "id": "EVT-ENJAMBRE-HOTSPOT-PRAT",
+      "tipo": "TRACKING_ENJAMBRE_HIPERVELOCIDAD"
+    },
+    {
+      "lat": 41.3128,
+      "lon": 2.1823,
+      "altitud_m": 420000.0,
+      "peso": 0.55,
+      "id": "EVT-ENJAMBRE-HOTSPOT-PRAT-cluster-0",
+      "tipo": "TRACKING_ENJAMBRE_HIPERVELOCIDAD"
+    },
+    {
+      "lat": 41.3874,
+      "lon": 2.1313,
+      "altitud_m": 420000.0,
+      "peso": 0.55,
+      "id": "EVT-ENJAMBRE-HOTSPOT-PRAT-cluster-1",
+      "tipo": "TRACKING_ENJAMBRE_HIPERVELOCIDAD"
+    },
+    {
+      "lat": 41.3668,
+      "lon": 2.0433,
+      "altitud_m": 420000.0,
+      "peso": 0.55,
+      "id": "EVT-ENJAMBRE-HOTSPOT-PRAT-cluster-2",
+      "tipo": "TRACKING_ENJAMBRE_HIPERVELOCIDAD"
+    },
+    {
+      "lat": 41.2774,
+      "lon": 2.0306,
+      "altitud_m": 420000.0,
+      "peso": 0.55,
+      "id": "EVT-ENJAMBRE-HOTSPOT-PRAT-cluster-3",
+      "tipo": "TRACKING_ENJAMBRE_HIPERVELOCIDAD"
+    },
+    {
+      "lat": 41.2331,
+      "lon": 2.1093,
+      "altitud_m": 420000.0,
+      "peso": 0.55,
+      "id": "EVT-ENJAMBRE-HOTSPOT-PRAT-cluster-4",
+      "tipo": "TRACKING_ENJAMBRE_HIPERVELOCIDAD"
+    },
+    {
+      "lat": 36.7213,
+      "lon": -4.4214,
+      "altitud_m": 350000.0,
+      "peso": 0.88,
+      "id": "EVT-EXOSFERA-LEO-ACCELERATION",
+      "tipo": "ACELERACION_EXOSFERICA_DESCONOCIDA"
+    },
+    {
+      "lat": 36.7213,
+      "lon": -4.3414,
+      "altitud_m": 350000.0,
+      "peso": 0.53,
+      "id": "EVT-EXOSFERA-LEO-ACCELERATION-cluster-0",
+      "tipo": "ACELERACION_EXOSFERICA_DESCONOCIDA"
+    },
+    {
+      "lat": 36.7959,
+      "lon": -4.3924,
+      "altitud_m": 350000.0,
+      "peso": 0.53,
+      "id": "EVT-EXOSFERA-LEO-ACCELERATION-cluster-1",
+      "tipo": "ACELERACION_EXOSFERICA_DESCONOCIDA"
+    },
+    {
+      "lat": 36.7753,
+      "lon": -4.4804,
+      "altitud_m": 350000.0,
+      "peso": 0.53,
+      "id": "EVT-EXOSFERA-LEO-ACCELERATION-cluster-2",
+      "tipo": "ACELERACION_EXOSFERICA_DESCONOCIDA"
+    },
+    {
+      "lat": 36.6859,
+      "lon": -4.4931,
+      "altitud_m": 350000.0,
+      "peso": 0.53,
+      "id": "EVT-EXOSFERA-LEO-ACCELERATION-cluster-3",
+      "tipo": "ACELERACION_EXOSFERICA_DESCONOCIDA"
+    },
+    {
+      "lat": 36.6416,
+      "lon": -4.4144,
+      "altitud_m": 350000.0,
+      "peso": 0.53,
+      "id": "EVT-EXOSFERA-LEO-ACCELERATION-cluster-4",
+      "tipo": "ACELERACION_EXOSFERICA_DESCONOCIDA"
+    }
+  ]
+}

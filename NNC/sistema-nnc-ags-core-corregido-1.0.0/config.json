@@ -1,0 +1,28 @@
+{
+  "sistema": "NNC - Control Multidominio",
+  "version": "1.0.0-beta.10",
+  "estaciones": {
+    "A": {
+      "nombre": "Prat de Llobregat",
+      "lat": 41.3278,
+      "lon": 2.0947,
+      "h_m": 10.0
+    },
+    "B": {
+      "nombre": "Base Oeste",
+      "lat": 41.3278,
+      "lon": 1.999,
+      "h_m": 10.0
+    }
+  },
+  "parametros_triangulacion": {
+    "linea_base_m": 8000.0,
+    "max_gap_m": 50.0,
+    "desfase_gnss_max_ms": 20
+  },
+  "limite_biologico_h7": {
+    "v_max_fauna_m_s": 35.0,
+    "v_picado_halcon_m_s": 110.0,
+    "h_max_fauna_m": 8000.0
+  }
+}

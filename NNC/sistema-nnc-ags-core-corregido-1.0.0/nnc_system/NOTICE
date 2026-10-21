@@ -1,0 +1,13 @@
+NNC + AGs-Core — NOTICE
+Copyright (c) 2026 Lázaro López Paz, El Prat de Llobregat, Barcelona, España, con asistencia de IA. Software: MIT. Documentos: CC BY 4.0.
+
+Terceros citados / utilizados (no son obra del autor):
+- Método de Bowring (conversión ECEF→geodésicas): B. R. Bowring, Survey Review (1976). Referencia exacta PENDIENTE DE VERIFICACIÓN.
+- WGS84: World Geodetic System 1984, NGA/NIMA TR8350.2 (parámetros del elipsoide).
+- CRC-16/CCITT-FALSE: polinomio 0x1021, valor inicial 0xFFFF (vector de prueba "123456789" = 0x29B1).
+- three.js (MIT, mrdoob y colaboradores), cargado por CDN; OrbitControls de los ejemplos de three.js.
+- three-globe (MIT, Vasco Asturiano): texturas de ejemplo cargadas por URL; licencia de las imágenes PENDIENTE DE VERIFICACIÓN.
+- Leaflet (BSD-2-Clause, Vladimir Agafonkin y colaboradores), usado en build-beta/radar.html.
+- adsb.lol: API pública ADS-B (datos de la comunidad; términos de uso PENDIENTE DE VERIFICACIÓN). Usado solo por build-beta/ws_vivo.py.
+- wheretheiss.at: API pública de posición de la ISS (términos de uso PENDIENTE DE VERIFICACIÓN). Usado solo por build-beta/ws_vivo.py.
+"Google Earth" no se usa: el globo es three.js/three-globe.

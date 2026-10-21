@@ -1,0 +1,27 @@
+{
+  "grpc_security": {
+    "enable_tls": false,
+    "cert_chain_path": "certs/server.crt",
+    "private_key_path": "certs/server.key",
+    "enable_mtls": false,
+    "root_ca_path": "certs/ca.crt"
+  },
+  "rest_security": {
+    "enable_jwt": false,
+    "jwt_algorithm": "HS256",
+    "token_expiration_minutes": 60,
+    "rate_limiting": {
+      "requests_per_minute": 120,
+      "burst_limit": 300
+    }
+  },
+  "notificaciones": {
+    "enable_telegram": false,
+    "enable_slack": false,
+    "telegram_bot_token": "CONFIGURAR_BOT_TOKEN",
+    "telegram_chat_id": "CONFIGURAR_CHAT_ID",
+    "slack_webhook_url": "CONFIGURAR_WEBHOOK_URL"
+  },
+  "ip_whitelist": [],
+  "nota_seguridad": "Esta versión no implementa servidor gRPC, TLS/mTLS, JWT, limitación de tasa ni lista de IP. La API REST usa NNC_API_TOKEN y debe mantenerse en localhost o detrás de un proxy TLS configurado."
+}

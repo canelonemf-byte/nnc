@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package ags_core.v1;
+
+// Servicio Principal de Orquestación AGs-Core + Sub-Agentes LoRA
+service AGsCoreService {
+  // RPC sincrónico para auditar un evento puntual
+  rpc AuditarEvento (AuditoriaRequest) returns (AuditoriaResponse);
+
+  // RPC de transmisión unidireccional (Server Streaming) para flujo de sensores
+  rpc StreamingCanalSensores (SensorStreamRequest) returns (stream SensorStreamResponse);
+
+  // RPC para evaluar la exclusión jerárquica H0-H7
+  rpc ConsultarExclusionH0H7 (ExclusionRequest) returns (ExclusionResponse);
+
+  // RPC para conmutación/carga dinámica de adaptadores LoRA
+  rpc CargarAdaptadorLoRA (LoRAGradientRequest) returns (LoRAGradientResponse);
+}
+
+// Mensaje de solicitud de auditoría de evento
+message AuditoriaRequest {
+  string id_evento = 1;
+  string dominio = 2; // "Atmosfera", "Hidrosfera", "Litosfera", "Espacio"
+  
+  // Coordenadas ECEF (X, Y, Z en metros)
+  double ecef_x = 3;
+  double ecef_y = 4;
+  double ecef_z = 5;
+
+  // Par Óptico ENU
+  repeated double pos_estacion_a = 6;
+  repeated double pos_estacion_b = 7;
+  double azimut_a_deg = 8;
+  double elevacion_a_deg = 9;
+  double azimut_b_deg = 10;
+  double elevacion_b_deg = 11;
+
+  double velocidad_m_s = 12;
+}
+
+// Respuesta de auditoría del Meta-Controlador
+message AuditoriaResponse {
+  string id_evento = 1;
+  string estado = 2; // "CANDIDATO_CINEMATICO", "EXPLICADO", "RECHAZADO_INGRESO", etc.
+  string motivo = 3;
+  
+  message TriangulacionInfo {
+    bool ok = 1;
+    double gap_m = 2;
+    double distancia_r_m = 3;
+  }
+  
+  message CinematicaInfo {
+    double v_km_s = 1;
+    double mach = 2;
+    double g_fuerza = 3;
+  }
+
+  TriangulacionInfo triangulacion = 4;
+  CinematicaInfo cinematica = 5;
+}
+
+message SensorStreamRequest {
+  string id_estacion = 1;
+  uint64 timestamp_utc_ms = 2;
+}
+
+message SensorStreamResponse {
+  string id_evento = 1;
+  double ecef_x = 2;
+  double ecef_y = 3;
+  double ecef_z = 4;
+  double v_m_s = 5;
+}
+
+message ExclusionRequest {
+  string id_evento = 1;
+  double velocidad_m_s = 2;
+  double altitud_m = 3;
+  string icao24_adsb = 4;
+  string norad_id_tle = 5;
+}
+
+message ExclusionResponse {
+  string id_evento = 1;
+  string filtro_fallido = 2; // "H1_ADSB", "H3_TLE", "H7_ANIMAL", etc.
+  string resultado_h7_animal = 3; // "DESCARTADO_ANIMAL", "COMPATIBLE_ANIMAL"
+  bool excluido = 4;
+}
+
+message LoRAGradientRequest {
+  string nombre_adaptador = 1; // "LoRA_Air", "LoRA_Water", "LoRA_Space", "LoRA_Land"
+  uint32 rank_r = 2;
+  float alpha = 3;
+}
+
+message LoRAGradientResponse {
+  string nombre_adaptador = 1;
+  bool cargado_ok = 2;
+  uint32 parametros_totales = 3;
+  float memoria_mb = 4;
+}

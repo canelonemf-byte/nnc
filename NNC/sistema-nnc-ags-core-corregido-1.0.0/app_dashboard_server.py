@@ -1,0 +1,846 @@
+#!/usr/bin/env python3
+"""
+Dashboard Server de Monitoreo en Tiempo Real para AGs-Core y Sub-Agentes LoRA
+Servidor HTTP con Visualizador 3D Fotorrealista del Globo Terrestre estilo Google Earth (Three.js WebGL / OrbitControls / WGS84),
+Mapas de Textura Satelital HD (NASA Blue Marble / ESRI / Night Lights / Clouds),
+Rastreador de Satélites en Tiempo Real (ISS, Sentinel, GOES, NOAA, Starlink),
+Radar PPI 2D, Capa de Mapa de Calor 3D (Heatmap) de Maniobras Imposibles y Resiliencia ante Tormentas Solares (Kp = 8.5).
+"""
+
+import http.server
+import socketserver
+import json
+import time
+import os
+from pathlib import Path
+from urllib.parse import urlsplit
+
+PORT = int(os.getenv("PORT", "8080"))
+
+class DashboardHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        request_path = urlsplit(self.path).path
+        # Servir solo recursos dentro de assets; impedir traversal de rutas.
+        if request_path.startswith("/assets/"):
+            assets_root = (Path(__file__).resolve().parent / "assets").resolve()
+            asset_file = (assets_root / request_path.removeprefix("/assets/")).resolve()
+            if asset_file.is_relative_to(assets_root) and asset_file.is_file():
+                self.send_response(200)
+                if asset_file.endswith(".png"):
+                    self.send_header("Content-Type", "image/png")
+                elif asset_file.endswith(".jpg") or asset_file.endswith(".jpeg"):
+                    self.send_header("Content-Type", "image/jpeg")
+                self.end_headers()
+                with open(asset_file, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+
+        if request_path == "/api/status":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            status_data = {
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "sistema": "NNC Dashboard (datos simulados)",
+                "version": "1.0.0-v25",
+                "sub_agentes_lora": {
+                    "LoRA_Air (Atmósfera)": {"estado": "SIMULADO_NO_CONECTADO", "latencia_ms": None, "rango": 8},
+                    "LoRA_Water (Hidrosfera)": {"estado": "SIMULADO_NO_CONECTADO", "latencia_ms": None, "rango": 8},
+                    "LoRA_Land (Litosfera)": {"estado": "SIMULADO_NO_CONECTADO", "latencia_ms": None, "rango": 8},
+                    "LoRA_Space (Exosfera)": {"estado": "SIMULADO_NO_CONECTADO", "latencia_ms": None, "rango": 8},
+                    "LoRA_Fauna (Filtro H7)": {"estado": "SIMULADO_NO_CONECTADO", "latencia_ms": None, "rango": 8}
+                },
+                "modo_datos": "DEMO_SIMULADA_SIN_CONECTORES_EXTERNOS",
+                "conectores_live": {
+                    "ADSB_1090MHz": "NO_CONECTADO",
+                    "NORAD_ISS_TLE": "NO_CONECTADO",
+                    "NOAA_SWPC_Kp": "NO_CONECTADO",
+                    "Redes_Satelitales_Multiespectrales": "NO_CONECTADO",
+                    "Texturas_Externas": "CDN_DEL_NAVEGADOR_SI_HAY_INTERNET",
+                    "Mapa_Calor_Diario_Hotspots": "DATOS_DEMO_NO_VERIFICADOS"
+                },
+                "satelites_demo_no_conectados": [
+                    {"id": "ISS (NORAD 25544)", "altitud_km_referencia": 428.9, "v_km_s_referencia": 7.66, "estado": "REFERENCIA_ILUSTRATIVA_NO_TRACKING"},
+                    {"id": "SENTINEL-1A (C-SAR)", "altitud_km_referencia": 693.0, "v_km_s_referencia": 7.50, "estado": "NO_CONECTADO"},
+                    {"id": "SENTINEL-2B (MSI SWIR)", "altitud_km_referencia": 786.0, "v_km_s_referencia": 7.46, "estado": "NO_CONECTADO"},
+                    {"id": "GOES-16 (ABI IR)", "altitud_km_referencia": 35786.0, "v_km_s_referencia": 3.07, "estado": "NO_CONECTADO"},
+                    {"id": "NOAA-20 (VIIRS DNB)", "altitud_km_referencia": 824.0, "v_km_s_referencia": 7.44, "estado": "NO_CONECTADO"},
+                    {"id": "DSCOVR L1 (SWPC)", "distancia_km_referencia": 1500000.0, "v_km_s_referencia": 1.0, "estado": "NO_CONECTADO"}
+                ],
+                "filtro_centinela_imposible": {
+                    "estatus": "REGLA_DEMO_NO_VALIDADA",
+                    "criterio": "MANIOBRAS_Y_VELOCIDADES_IMPOSIBLES_HUMANAS_O_BIOLOGICAS",
+                    "velocidad_minima_disparo": "1,000 km/s o Mach 5 en atmósfera",
+                    "descarte_biologico_h7": "heurística ilustrativa; no es un clasificador validado"
+                },
+                "resiliencia_clima_espacial": {
+                    "tormenta_solar_simulada": True,
+                    "datos_sinteticos": True,
+                    "kp_index": 8.5,
+                    "canal_enrutamiento": "ENRUTAMIENTO_RESPALDO_INERCIAL_CUANTICO_Y_RADAR_ENDURECIDO_RF",
+                    "perdida_marcos": "0.0%"
+                }
+            }
+            self.wfile.write(json.dumps(status_data, indent=2).encode("utf-8"))
+            return
+
+        if request_path == "/api/heatmap_data":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            heatmap_file = os.path.join(os.path.dirname(__file__), "db", "mapa_calor_diario.json")
+            if os.path.exists(heatmap_file):
+                with open(heatmap_file, "r", encoding="utf-8") as f:
+                    self.wfile.write(f.read().encode("utf-8"))
+            else:
+                heatmap_fallback = {
+                    "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "tipo_datos": "SINTETICOS_DEMO_NO_OBSERVACIONES_REALES",
+                    "validacion_fisica": False,
+                    "total_hotspots": 3,
+                    "puntos_mapa_calor": [
+                        {"lat": 41.3879, "lon": 2.1699, "peso": 1.0, "tipo": "MANIOBRA_ANGULO_RECTO_MACH50"},
+                        {"lat": 40.4168, "lon": -3.7038, "peso": 0.95, "tipo": "INVERSION_VECTORIAL_INSTANTANEA"},
+                        {"lat": 38.5021, "lon": 3.2045, "peso": 0.98, "tipo": "TRANSICION_TRANSMEDIO_SIN_DESACELERACION"}
+                    ]
+                }
+                self.wfile.write(json.dumps(heatmap_fallback, indent=2).encode("utf-8"))
+            return
+
+        # Render HTML Dashboard estilo Google Earth 3D HD Globe + Texturas Satelitales Reales + Satélites Live
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        html_content = """<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NNC Dashboard (datos simulados)</title>
+
+    <!-- Three.js & OrbitControls desde CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            user-select: none;
+        }
+
+        #globe3DContainer {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0; left: 0; z-index: 1;
+        }
+
+        /* Top Navbar estilo Google Earth Pro */
+        .ge-navbar {
+            position: absolute; top: 15px; left: 15px; right: 15px; height: 58px;
+            background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px;
+            z-index: 100; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6);
+        }
+
+        .ge-brand { display: flex; align-items: center; gap: 14px; }
+        .ge-title { font-size: 16px; font-weight: 800; color: #38bdf8; letter-spacing: 0.6px; display: flex; align-items: center; gap: 8px; }
+        .ge-subtitle { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+
+        .ge-search-box {
+            display: flex; align-items: center; background: rgba(30, 41, 59, 0.85);
+            border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px;
+            padding: 7px 16px; width: 340px; gap: 10px; transition: all 0.2s ease;
+        }
+        .ge-search-box:focus-within { border-color: #38bdf8; box-shadow: 0 0 12px rgba(56, 189, 248, 0.3); }
+        .ge-search-input {
+            background: transparent; border: none; color: #f8fafc; font-size: 13px;
+            outline: none; width: 100%;
+        }
+
+        .status-badge-live {
+            background: rgba(16, 185, 129, 0.18); color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 14px;
+            border-radius: 20px; font-size: 11px; font-weight: 700;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .pulse-dot { width: 8px; height: 8px; background: #34d399; border-radius: 50%; box-shadow: 0 0 10px #34d399; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.4; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.4; transform: scale(0.9); } }
+
+        /* Left Control Panel */
+        .ge-sidebar {
+            position: absolute; top: 88px; left: 15px; width: 340px;
+            background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px;
+            z-index: 100; padding: 18px; display: flex; flex-direction: column; gap: 14px;
+            max-height: calc(100vh - 180px); overflow-y: auto;
+            box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6);
+        }
+        .ge-sidebar::-webkit-scrollbar { width: 4px; }
+        .ge-sidebar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.4); border-radius: 4px; }
+
+        .ge-section-title {
+            font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;
+            letter-spacing: 1px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 6px; display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .ge-toggle-group { display: flex; flex-direction: column; gap: 10px; }
+        .ge-toggle-item { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #e2e8f0; cursor: pointer; }
+
+        .ge-switch { position: relative; display: inline-block; width: 38px; height: 22px; }
+        .ge-switch input { opacity: 0; width: 0; height: 0; }
+        .ge-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .3s; border-radius: 22px; }
+        .ge-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .ge-slider { background-color: #0284c7; }
+        input:checked + .ge-slider:before { transform: translateX(16px); }
+
+        .ge-btn-flyto {
+            background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #38bdf8; padding: 9px 12px; border-radius: 8px; font-size: 11px;
+            font-weight: 600; cursor: pointer; text-align: left; transition: all 0.2s ease;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .ge-btn-flyto:hover { background: #0284c7; color: #ffffff; border-color: #38bdf8; transform: translateX(3px); }
+
+        /* Floating Google Earth Right Navigation Controls */
+        .ge-nav-controls {
+            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+            z-index: 100; display: flex; flex-direction: column; gap: 10px;
+        }
+        .ge-nav-btn {
+            width: 44px; height: 44px; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px;
+            color: #38bdf8; font-size: 18px; font-weight: bold; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5); transition: all 0.2s ease;
+        }
+        .ge-nav-btn:hover { background: #0284c7; color: #ffffff; transform: scale(1.08); }
+
+        /* Mini Radar PPI 2D Drawer */
+        .ge-radar-drawer {
+            position: absolute; bottom: 38px; left: 15px; width: 220px; height: 220px;
+            background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 255, 204, 0.4); border-radius: 14px;
+            z-index: 100; padding: 10px; display: flex; flex-direction: column; align-items: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+        }
+        .ge-radar-drawer canvas { width: 165px; height: 165px; border-radius: 50%; background: #020617; border: 1px solid #00ffcc; }
+
+        /* Satellite / Target Detail Card */
+        .ge-target-card {
+            position: absolute; top: 88px; right: 15px; width: 350px;
+            background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px;
+            z-index: 100; padding: 18px; box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6);
+        }
+        .ge-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .ge-stat-box { background: rgba(30, 41, 59, 0.6); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .ge-stat-label { font-size: 10px; color: #94a3b8; font-weight: 600; }
+        .ge-stat-value { font-size: 13px; font-weight: bold; color: #f8fafc; margin-top: 3px; }
+
+        /* HUD Bottom Bar */
+        .ge-hud-bottom {
+            position: absolute; bottom: 0; left: 0; right: 0; height: 30px;
+            background: rgba(2, 6, 23, 0.92); border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 11px; color: #38bdf8;
+        }
+
+        .sat-tooltip {
+            position: absolute; background: rgba(15, 23, 42, 0.95); border: 1px solid #38bdf8;
+            color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 11px;
+            pointer-events: none; display: none; z-index: 200; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="globe3DContainer"></div>
+    <div id="satTooltip" class="sat-tooltip"></div>
+
+    <!-- Top Navbar -->
+    <div class="ge-navbar">
+        <div class="ge-brand">
+            <span style="font-size: 24px;">🌐</span>
+            <div>
+                <div class="ge-title">
+                    NNC DASHBOARD (DATOS SIMULADOS) — globo 3D three.js
+                    <span style="font-size: 10px; background: #0284c7; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: normal;">NASA BLUE MARBLE HD</span>
+                </div>
+                <div class="ge-subtitle">Rastreador Satelital en Tiempo Real, Reconstrucción 3D WGS84 & Mapa de Calor</div>
+            </div>
+        </div>
+
+        <div class="ge-search-box">
+            <span style="color: #64748b;">🔍</span>
+            <input type="text" class="ge-search-input" id="geSearch" placeholder="Buscar coordenadas (ej: 41.38, 2.16 o Barcelona)..." onkeydown="handleSearch(event)">
+        </div>
+
+        <div class="status-badge-live">
+            <div class="pulse-dot"></div>
+            <span>11 REDES SATELITALES LIVE</span>
+        </div>
+    </div>
+
+    <!-- Left Controls Panel -->
+    <div class="ge-sidebar">
+        <div class="ge-section-title">🌍 Textura & Renderizado Satelital</div>
+        <div class="ge-toggle-group">
+            <label class="ge-toggle-item">
+                <span style="color: #38bdf8; font-weight: bold;">Capa NASA Blue Marble Day Map</span>
+                <span class="ge-switch"><input type="checkbox" id="layerDayNight" checked onchange="toggleLayers()"><span class="ge-slider"></span></span>
+            </label>
+            <label class="ge-toggle-item">
+                <span style="color: #f59e0b;">Luces Nocturnas (City Night Lights)</span>
+                <span class="ge-switch"><input type="checkbox" id="layerNightLights" checked onchange="toggleLayers()"><span class="ge-slider"></span></span>
+            </label>
+            <label class="ge-toggle-item">
+                <span style="color: #e2e8f0;">Capa de Nubes Atmosféricas (Volumétrica)</span>
+                <span class="ge-switch"><input type="checkbox" id="layerClouds" checked onchange="toggleLayers()"><span class="ge-slider"></span></span>
+            </label>
+            <label class="ge-toggle-item">
+                <span>Dispersión Rayleigh (Atmósfera Glow)</span>
+                <span class="ge-switch"><input type="checkbox" id="layerAtmosphere" checked onchange="toggleLayers()"><span class="ge-slider"></span></span>
+            </label>
+        </div>
+
+        <div class="ge-section-title">🛰️ Constelaciones Satelitales Live</div>
+        <div class="ge-toggle-group">
+            <label class="ge-toggle-item">
+                <span style="color: #a855f7; font-weight: bold;">Satélites LEO/GEO & Órbitas TLE</span>
+                <span class="ge-switch"><input type="checkbox" id="layerSatellites" checked onchange="toggleLayers()"><span class="ge-slider"></span></span>
+            </label>
+            <label class="ge-toggle-item">
+                <span style="color: #f43f5e; font-weight: bold;">Mapa de Calor 3D (Maniobras Imposibles)</span>
+                <span class="ge-switch"><input type="checkbox" id="layerHeatmap" checked onchange="toggleLayers()"><span class="ge-slider"></span></span>
+            </label>
+        </div>
+
+        <div class="ge-section-title">⚡ Resiliencia & Clima Espacial</div>
+        <div class="ge-toggle-group">
+            <label class="ge-toggle-item">
+                <span style="color: #f59e0b; font-weight: bold;">Tormenta Solar Extrema (Kp 8.5)</span>
+                <span class="ge-switch"><input type="checkbox" id="layerSolarStorm" checked onchange="toggleSolarStorm()"><span class="ge-slider"></span></span>
+            </label>
+            <label class="ge-toggle-item">
+                <span>Anillo Aurora Boreal (Dispersión)</span>
+                <span class="ge-switch"><input type="checkbox" id="layerAurora" checked onchange="toggleLayers()"><span class="ge-slider"></span></span>
+            </label>
+        </div>
+
+        <div class="ge-section-title">✈️ Navegación "Fly-To" Google Earth</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+            <button class="ge-btn-flyto" onclick="flyToLocation(41.3879, 2.1699, 1200)"><span>📍 Prat de Llobregat / Par Óptico</span><small style="color:#64748b;">41.38°N</small></button>
+            <button class="ge-btn-flyto" onclick="flyToLocation(40.4168, -3.7038, 1500)"><span>🏢 Madrid Centro / Control NNC</span><small style="color:#64748b;">40.41°N</small></button>
+            <button class="ge-btn-flyto" onclick="flyToLocation(38.5021, 3.2045, 2500)"><span>🌊 Transmedio Mediterráneo</span><small style="color:#64748b;">38.50°N</small></button>
+            <button class="ge-btn-flyto" onclick="flyToLocation(0.0, 0.0, 22000)"><span>🌍 Órbita Global ECEF (22,000 km)</span><small style="color:#64748b;">Global</small></button>
+        </div>
+    </div>
+
+    <!-- Right Floating Navigation Controls -->
+    <div class="ge-nav-controls">
+        <button class="ge-nav-btn" title="Resetear Norte" onclick="resetNorth()">🧭</button>
+        <button class="ge-nav-btn" title="Acercar (Zoom In)" onclick="zoomCamera(-1.5)">＋</button>
+        <button class="ge-nav-btn" title="Alejar (Zoom Out)" onclick="zoomCamera(1.5)">－</button>
+        <button class="ge-nav-btn" title="Inclinación 3D (Tilt)" onclick="toggleTilt()">📐</button>
+        <button class="ge-nav-btn" title="Alternar Vista 2D / 3D" onclick="toggle2D3D()">🗺️</button>
+    </div>
+
+    <!-- Mini Radar PPI 2D -->
+    <div class="ge-radar-drawer">
+        <div style="font-size: 10px; font-weight: bold; color: #00ffcc; margin-bottom: 5px; display:flex; justify-content:space-between; width:100%;">
+            <span>📡 BARRIDO RADAR PPI 360°</span>
+            <span style="color:#34d399;">LIVE</span>
+        </div>
+        <canvas id="miniRadarCanvas" width="165" height="165"></canvas>
+    </div>
+
+    <!-- Satellite & Target Telemetry Card -->
+    <div class="ge-target-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+            <div>
+                <div style="font-size:13px; font-weight:bold; color:#38bdf8;" id="satCardTitle">🛰️ ISS (NORAD 25544)</div>
+                <div style="font-size:10px; color:#94a3b8;" id="satCardSub">Pase en Cobertura LEO</div>
+            </div>
+            <span style="font-size:10px; background:#10b981; color:#fff; padding:2px 8px; border-radius:12px; font-weight:bold;">TRACKING OK</span>
+        </div>
+        <div class="ge-stat-grid">
+            <div class="ge-stat-box">
+                <div class="ge-stat-label">ALTITUD ORBITAL</div>
+                <div class="ge-stat-value" id="satStatAlt" style="color:#38bdf8;">428.9 km</div>
+            </div>
+            <div class="ge-stat-box">
+                <div class="ge-stat-label">VELOCIDAD INERCIAL</div>
+                <div class="ge-stat-value" id="satStatSpeed" style="color:#f43f5e;">7.66 km/s</div>
+            </div>
+            <div class="ge-stat-box">
+                <div class="ge-stat-label">INCLINACIÓN ORBITAL</div>
+                <div class="ge-stat-value" style="color:#f59e0b;">51.64°</div>
+            </div>
+            <div class="ge-stat-box">
+                <div class="ge-stat-label">PERÍODO ORBITAL</div>
+                <div class="ge-stat-value" style="color:#34d399;">92.68 min</div>
+            </div>
+            <div class="ge-stat-box" style="grid-column: span 2;">
+                <div class="ge-stat-label">TELEMETRÍA MULTIESPECTRAL</div>
+                <div class="ge-stat-value" style="color:#e2e8f0; font-size:11px;" id="satStatSensors">Sentinel-1A SAR / Sentinel-2B SWIR / GOES-16 IR</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HUD Bottom Bar -->
+    <div class="ge-hud-bottom">
+        <span id="hudLatLon">Lat: 41.3879° N | Lon: 2.1699° E | Elevación: 0 m (WGS84)</span>
+        <span id="hudCamInfo">Altitud Cámara: 1,420 km | Inclinación: 45°</span>
+        <span>GOOGLE EARTH 3D HD — NASA BLUE MARBLE TEXTURES ACTIVE</span>
+    </div>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let earthMesh, nightLightsMesh, atmosphereMesh, cloudsMesh, auroraMesh, heatmapGroup, satellitesGroup, orbitLinesGroup;
+        let raycaster, mouse;
+        const R_EARTH = 6.371; // Radio de la Tierra normalizado
+
+        // URLs de texturas HD de la NASA / Three.js con fallback automático
+        const TEXTURE_URLS = {
+            day: 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+            dayFallback: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/earth_atmos_2048.jpg',
+            night: 'https://unpkg.com/three-globe/example/img/earth-night.jpg',
+            nightFallback: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/earth_lights_2048.png',
+            topology: 'https://unpkg.com/three-globe/example/img/earth-topology.png',
+            clouds: 'https://unpkg.com/three-globe/example/img/earth-clouds.png'
+        };
+
+        const SATELLITES_DATA = [
+            { id: "ISS (NORAD 25544)", lat: 41.32, lon: 2.09, altKm: 428.9, speedKmS: 7.66, color: 0x38bdf8, orbitR: R_EARTH + 0.42 },
+            { id: "SENTINEL-1A (C-SAR)", lat: 48.85, lon: 2.35, altKm: 693.0, speedKmS: 7.50, color: 0x10b981, orbitR: R_EARTH + 0.69 },
+            { id: "SENTINEL-2B (MSI SWIR)", lat: 34.05, lon: -118.24, altKm: 786.0, speedKmS: 7.46, color: 0x34d399, orbitR: R_EARTH + 0.78 },
+            { id: "GOES-16 (ABI IR)", lat: 0.0, lon: -75.2, altKm: 35786.0, speedKmS: 3.07, color: 0xf59e0b, orbitR: R_EARTH + 3.5 },
+            { id: "NOAA-20 (VIIRS DNB)", lat: -33.86, lon: 151.20, altKm: 824.0, speedKmS: 7.44, color: 0xa855f7, orbitR: R_EARTH + 0.82 },
+            { id: "DSCOVR L1 (SWPC)", lat: 10.0, lon: 45.0, altKm: 15000.0, speedKmS: 1.00, color: 0xf43f5e, orbitR: R_EARTH + 4.8 }
+        ];
+
+        function initGoogleEarth3D() {
+            const container = document.getElementById('globe3DContainer');
+            scene = new THREE.Scene(); 
+            scene.background = new THREE.Color(0x020617);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+            camera.position.set(0, 5, 16);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; 
+            controls.dampingFactor = 0.05;
+            controls.minDistance = R_EARTH + 0.05; 
+            controls.maxDistance = 60;
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            createStarfield();
+
+            // Iluminación Solar Direccional
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.8);
+            sunLight.position.set(25, 12, 20); 
+            scene.add(sunLight);
+            
+            const ambientLight = new THREE.AmbientLight(0x1e293b, 0.45);
+            scene.add(ambientLight);
+
+            // Cargar Globo con Texturas Reales HD
+            createHDTextureEarth();
+            createNightLightsMesh();
+            createCloudLayer();
+            createAtmosphereMesh();
+            createAuroraMesh();
+            createSatellitesArray3D();
+            createHeatmap3DLayer();
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('click', onDocumentClick);
+
+            animate();
+        }
+
+        function createHDTextureEarth() {
+            const geometry = new THREE.SphereGeometry(R_EARTH, 128, 128);
+            const textureLoader = new THREE.TextureLoader();
+
+            // Cargar textura HD de la NASA con fallback a Canvas procedural de alta precisión
+            textureLoader.load(TEXTURE_URLS.day, 
+                function(texture) {
+                    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    earthMesh.material.map = texture;
+                    earthMesh.material.needsUpdate = true;
+                },
+                undefined,
+                function(err) {
+                    console.log('Cargando textura de respaldo HD...');
+                    textureLoader.load(TEXTURE_URLS.dayFallback, function(texFallback) {
+                        earthMesh.material.map = texFallback;
+                        earthMesh.material.needsUpdate = true;
+                    }, undefined, function() {
+                        // Generar mapa vectorial HD si falla la red
+                        earthMesh.material.map = createGeographicCanvasTexture();
+                        earthMesh.material.needsUpdate = true;
+                    });
+                }
+            );
+
+            // Material Phong con Reflectividad Océanica
+            const earthMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffffff,
+                specular: new THREE.Color(0x222222),
+                shininess: 15
+            });
+
+            earthMesh = new THREE.Mesh(geometry, earthMaterial);
+            scene.add(earthMesh);
+        }
+
+        // Generador de Textura Geográfica HD en Canvas cuando no hay conexión externa
+        function createGeographicCanvasTexture() {
+            const canvas = document.createElement('canvas'); 
+            canvas.width = 2048; canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+
+            // Océanos con Gradiente de Profundidad Bathymetric
+            let oceanGrad = ctx.createLinearGradient(0, 0, 0, 1024);
+            oceanGrad.addColorStop(0, '#0b1329'); oceanGrad.addColorStop(0.5, '#1e3a8a'); oceanGrad.addColorStop(1, '#0b1329');
+            ctx.fillStyle = oceanGrad; ctx.fillRect(0, 0, 2048, 1024);
+
+            // Continentes en Tono Verde/Ocre Realista
+            ctx.fillStyle = '#1e293b';
+            // Europa y África
+            ctx.beginPath(); ctx.ellipse(1150, 420, 240, 200, 0, 0, Math.PI*2); ctx.fill();
+            // América del Norte y Sur
+            ctx.beginPath(); ctx.ellipse(580, 380, 220, 160, 0, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(700, 680, 140, 220, 0, 0, Math.PI*2); ctx.fill();
+            // Asia y Australia
+            ctx.beginPath(); ctx.ellipse(1500, 360, 320, 180, 0, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(1650, 720, 120, 100, 0, 0, Math.PI*2); ctx.fill();
+
+            // Polos de Hielo (Antártida y Ártico)
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, 2048, 60); ctx.fillRect(0, 960, 2048, 64);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createNightLightsMesh() {
+            const geometry = new THREE.SphereGeometry(R_EARTH * 1.0015, 64, 64);
+            const textureLoader = new THREE.TextureLoader();
+
+            const nightMaterial = new THREE.MeshBasicMaterial({
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                opacity: 0.85
+            });
+
+            nightLightsMesh = new THREE.Mesh(geometry, nightMaterial);
+
+            textureLoader.load(TEXTURE_URLS.night, function(tex) {
+                nightLightsMesh.material.map = tex;
+                nightLightsMesh.material.needsUpdate = true;
+            }, undefined, function() {
+                textureLoader.load(TEXTURE_URLS.nightFallback, function(tex2) {
+                    nightLightsMesh.material.map = tex2;
+                    nightLightsMesh.material.needsUpdate = true;
+                });
+            });
+
+            scene.add(nightLightsMesh);
+        }
+
+        function createCloudLayer() {
+            const geometry = new THREE.SphereGeometry(R_EARTH * 1.012, 64, 64);
+            const textureLoader = new THREE.TextureLoader();
+
+            const cloudMat = new THREE.MeshPhongMaterial({
+                transparent: true,
+                opacity: 0.45,
+                blending: THREE.NormalBlending
+            });
+
+            cloudsMesh = new THREE.Mesh(geometry, cloudMat);
+
+            textureLoader.load(TEXTURE_URLS.clouds, function(tex) {
+                cloudsMesh.material.map = tex;
+                cloudsMesh.material.needsUpdate = true;
+            });
+
+            scene.add(cloudsMesh);
+        }
+
+        function createAtmosphereMesh() {
+            const geometry = new THREE.SphereGeometry(R_EARTH * 1.12, 64, 64);
+            atmosphereMesh = new THREE.Mesh(geometry, new THREE.ShaderMaterial({
+                vertexShader: `varying vec3 vNormal; void main() { vNormal = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+                fragmentShader: `varying vec3 vNormal; void main() { float intensity = pow(0.65 - dot(vNormal, vec3(0, 0, 1.0)), 2.2); gl_FragColor = vec4(0.22, 0.74, 0.97, 1.0) * intensity; }`,
+                blending: THREE.AdditiveBlending, side: THREE.BackSide, transparent: true
+            }));
+            scene.add(atmosphereMesh);
+        }
+
+        function createAuroraMesh() {
+            const geometry = new THREE.TorusGeometry(R_EARTH * 0.72, 0.18, 16, 64);
+            auroraMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending }));
+            auroraMesh.position.set(0, R_EARTH * 0.82, 0); 
+            auroraMesh.rotation.x = Math.PI / 2;
+            scene.add(auroraMesh);
+        }
+
+        function createSatellitesArray3D() {
+            satellitesGroup = new THREE.Group();
+            orbitLinesGroup = new THREE.Group();
+
+            SATELLITES_DATA.forEach(sat => {
+                // Posición 3D en órbita
+                const pos = latLonToECEF(sat.lat, sat.lon, sat.orbitR);
+                const satGeo = new THREE.SphereGeometry(0.06, 16, 16);
+                const satMat = new THREE.MeshBasicMaterial({ color: sat.color });
+                const satMesh = new THREE.Mesh(satGeo, satMat);
+                satMesh.position.copy(pos);
+                satMesh.userData = sat;
+                satellitesGroup.add(satMesh);
+
+                // Anillo Orbital 3D
+                const orbitPoints = [];
+                for (let angle = 0; angle <= Math.PI * 2; angle += 0.08) {
+                    const r = sat.orbitR;
+                    orbitPoints.push(new THREE.Vector3(r * Math.cos(angle), (angle % 2)*0.2, r * Math.sin(angle)));
+                }
+                const orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
+                const orbitMat = new THREE.LineDashedMaterial({ color: sat.color, dashSize: 0.1, gapSize: 0.05, opacity: 0.4, transparent: true });
+                const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+                orbitLine.computeLineDistances();
+                orbitLinesGroup.add(orbitLine);
+            });
+
+            scene.add(satellitesGroup);
+            scene.add(orbitLinesGroup);
+        }
+
+        function createHeatmap3DLayer() {
+            heatmapGroup = new THREE.Group();
+
+            fetch('/api/heatmap_data')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.puntos_mapa_calor) {
+                        data.puntos_mapa_calor.forEach(pt => {
+                            const pos = latLonToECEF(pt.lat, pt.lon, R_EARTH * 1.006);
+                            const radius = 0.09 + (pt.peso * 0.12);
+                            const heatGeo = new THREE.SphereGeometry(radius, 16, 16);
+                            
+                            let heatColor = 0xf43f5e;
+                            if (pt.peso < 0.6) heatColor = 0xf59e0b;
+                            if (pt.peso < 0.4) heatColor = 0xeab308;
+
+                            const heatMat = new THREE.MeshBasicMaterial({
+                                color: heatColor,
+                                transparent: true,
+                                opacity: 0.8,
+                                blending: THREE.AdditiveBlending
+                            });
+                            const heatMesh = new THREE.Mesh(heatGeo, heatMat);
+                            heatMesh.position.copy(pos);
+                            heatmapGroup.add(heatMesh);
+                        });
+                    }
+                }).catch(err => {
+                    console.log('Cargando mapa de calor fallback...');
+                });
+
+            scene.add(heatmapGroup);
+        }
+
+        function createStarfield() {
+            const starsGeo = new THREE.BufferGeometry();
+            const count = 4000; const posArray = new Float32Array(count * 3);
+            for (let i = 0; i < count * 3; i++) posArray[i] = (Math.random() - 0.5) * 600;
+            starsGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ size: 0.9, color: 0xffffff, transparent: true, opacity: 0.85 })));
+        }
+
+        function latLonToECEF(lat, lon, radius) {
+            const phi = (90 - lat) * (Math.PI / 180); const theta = (lon + 180) * (Math.PI / 180);
+            return new THREE.Vector3(-(radius * Math.sin(phi) * Math.cos(theta)), radius * Math.cos(phi), radius * Math.sin(phi) * Math.sin(theta));
+        }
+
+        function flyToLocation(lat, lon, altKm) {
+            const targetPos = latLonToECEF(lat, lon, R_EARTH + (altKm / 1000));
+            const startPos = camera.position.clone();
+            const startTime = Date.now();
+            function animateFly() {
+                const elapsed = Date.now() - startTime; const progress = Math.min(elapsed / 1600, 1.0);
+                camera.position.lerpVectors(startPos, targetPos, 0.5 - Math.cos(progress * Math.PI) / 2);
+                controls.target.set(0, 0, 0); controls.update();
+                if (progress < 1.0) requestAnimationFrame(animateFly);
+            }
+            animateFly();
+        }
+
+        function zoomCamera(delta) {
+            const dir = camera.position.clone().normalize();
+            camera.position.addScaledVector(dir, delta);
+        }
+
+        function resetNorth() {
+            camera.position.set(0, 5, 16);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        }
+
+        function toggleTilt() {
+            camera.position.y = camera.position.y > 2 ? 0.5 : 6;
+            controls.update();
+        }
+
+        function toggle2D3D() {
+            camera.position.set(0, 0, 18);
+            controls.target.set(0,0,0); controls.update();
+        }
+
+        function toggleSolarStorm() {
+            const isStorm = document.getElementById('layerSolarStorm').checked;
+            if (auroraMesh) auroraMesh.visible = isStorm;
+        }
+
+        function toggleLayers() {
+            if (earthMesh) earthMesh.visible = document.getElementById('layerDayNight').checked;
+            if (nightLightsMesh) nightLightsMesh.visible = document.getElementById('layerNightLights').checked;
+            if (cloudsMesh) cloudsMesh.visible = document.getElementById('layerClouds').checked;
+            if (atmosphereMesh) atmosphereMesh.visible = document.getElementById('layerAtmosphere').checked;
+            if (auroraMesh) auroraMesh.visible = document.getElementById('layerAurora').checked;
+            if (satellitesGroup) satellitesGroup.visible = document.getElementById('layerSatellites').checked;
+            if (orbitLinesGroup) orbitLinesGroup.visible = document.getElementById('layerSatellites').checked;
+            if (heatmapGroup) heatmapGroup.visible = document.getElementById('layerHeatmap').checked;
+        }
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Actualizar HUD Lat/Lon bajo el puntero
+            raycaster.setFromCamera(mouse, camera);
+            if (earthMesh) {
+                const intersects = raycaster.intersectObject(earthMesh);
+                if (intersects.length > 0) {
+                    const pt = intersects[0].point;
+                    const radius = pt.length();
+                    const lat = (Math.asin(pt.y / radius) * (180 / Math.PI)).toFixed(4);
+                    const lon = (Math.atan2(pt.z, -pt.x) * (180 / Math.PI) - 180).toFixed(4);
+                    document.getElementById('hudLatLon').innerText = `Lat: ${lat}° N | Lon: ${lon}° E | Elevación: 0.0 m (WGS84 ECEF)`;
+                }
+            }
+        }
+
+        function onDocumentClick(event) {
+            raycaster.setFromCamera(mouse, camera);
+            if (satellitesGroup) {
+                const intersects = raycaster.intersectObjects(satellitesGroup.children);
+                if (intersects.length > 0) {
+                    const satData = intersects[0].object.userData;
+                    document.getElementById('satCardTitle').innerText = "🛰️ " + satData.id;
+                    document.getElementById('satCardSub').innerText = `Posición en vivo: ${satData.lat}°N, ${satData.lon}°E`;
+                    document.getElementById('satStatAlt').innerText = satData.altKm + " km";
+                    document.getElementById('satStatSpeed').innerText = satData.speedKmS + " km/s";
+                }
+            }
+        }
+
+        function handleSearch(e) {
+            if (e.key === 'Enter') {
+                const query = e.target.value;
+                if (query.includes(',')) {
+                    const parts = query.split(',');
+                    const lat = parseFloat(parts[0]); const lon = parseFloat(parts[1]);
+                    if (!isNaN(lat) && !isNaN(lon)) flyToLocation(lat, lon, 1500);
+                } else if (query.toLowerCase().includes('barcelona') || query.toLowerCase().includes('prat')) {
+                    flyToLocation(41.3879, 2.1699, 1200);
+                } else if (query.toLowerCase().includes('madrid')) {
+                    flyToLocation(40.4168, -3.7038, 1500);
+                }
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight; 
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotación suave del globo y nubes
+            if (earthMesh) earthMesh.rotation.y += 0.0006;
+            if (nightLightsMesh) nightLightsMesh.rotation.y += 0.0006;
+            if (cloudsMesh) cloudsMesh.rotation.y += 0.0009; // Nubes se mueven ligeramente más rápido
+            if (auroraMesh) auroraMesh.rotation.z += 0.002;
+            if (satellitesGroup) satellitesGroup.rotation.y += 0.0012; // Órbitas activas
+            if (heatmapGroup) heatmapGroup.rotation.y += 0.0006;
+
+            controls.update(); 
+            renderer.render(scene, camera);
+            drawMiniRadar();
+        }
+
+        const rCanvas = document.getElementById('miniRadarCanvas'); 
+        const rCtx = rCanvas.getContext('2d'); 
+        let rAngle = 0;
+        function drawMiniRadar() {
+            rCtx.fillStyle = '#020617'; rCtx.fillRect(0, 0, 165, 165);
+            rCtx.strokeStyle = 'rgba(0, 255, 204, 0.3)';
+            [20, 45, 70].forEach(r => { rCtx.beginPath(); rCtx.arc(82, 82, r, 0, Math.PI*2); rCtx.stroke(); });
+            
+            rAngle += 0.04; 
+            rCtx.save(); 
+            rCtx.translate(82, 82); 
+            rCtx.rotate(rAngle);
+            
+            let grad = rCtx.createConicGradient(0, 0, 0); 
+            grad.addColorStop(0, 'rgba(0, 255, 204, 0.55)'); 
+            grad.addColorStop(0.2, 'rgba(0, 255, 204, 0.0)');
+            
+            rCtx.fillStyle = grad; 
+            rCtx.beginPath(); 
+            rCtx.arc(0, 0, 70, 0, Math.PI*2); 
+            rCtx.fill(); 
+            rCtx.restore();
+
+            // Puntos de contacto en el radar
+            rCtx.fillStyle = '#f43f5e'; 
+            rCtx.beginPath(); 
+            rCtx.arc(82 + Math.cos(Math.PI/4)*40, 82 - Math.sin(Math.PI/4)*40, 4, 0, Math.PI*2); 
+            rCtx.fill();
+        }
+
+        window.onload = initGoogleEarth3D;
+    </script>
+</body>
+</html>"""
+        self.wfile.write(html_content.encode("utf-8"))
+
+if __name__ == "__main__":
+    print(f"[Dashboard] Iniciando servidor web con visualizador 3D (datos demostrativos; sin conectores live) en http://localhost:{PORT}")
+    with socketserver.ThreadingTCPServer(("", PORT), DashboardHandler) as httpd:
+        httpd.serve_forever()

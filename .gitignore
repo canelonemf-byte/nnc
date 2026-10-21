@@ -1,0 +1,7 @@
+.venv/
+.nnc_token
+*.pid
+logs/
+__pycache__/
+*.png
+*.pdf

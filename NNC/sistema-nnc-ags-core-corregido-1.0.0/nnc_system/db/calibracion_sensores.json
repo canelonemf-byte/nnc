@@ -1,0 +1,37 @@
+{
+  "tipo_datos": "SINTETICOS_NO_MEDICIONES_REALES",
+  "calibracion_fisica_validada": false,
+  "HEADER_AUTOCALIBRACION": {
+    "timestamp_utc": "2026-10-20T15:06:43Z",
+    "id_calibracion": "CALIB-ISS-1792508803",
+    "objeto_referencia": "ISS (NORAD 25544)",
+    "estado_calibracion": "SIMULACION_OK_NO_CALIBRACION_REAL"
+  },
+  "METRICAS_ALINEACION": {
+    "desfase_sincronia_reloj_ms": 1.24,
+    "tolerancia_sincronia_ms": 20.0,
+    "sincronia_pass": true,
+    "gap_m_error_cruce": 3.17157,
+    "tolerancia_gap_m": 5.0,
+    "triangulacion_pass": true,
+    "deriva_boresight_az_deg": 0.00012,
+    "deriva_boresight_el_deg": -8e-05,
+    "alineacion_pass": true,
+    "error_subpixel_rms": 0.082
+  },
+  "ESTACIONES": {
+    "estacion_a": {
+      "lat": 41.3278,
+      "lon": 2.0947,
+      "alt": 8.0,
+      "nombre": "Prat de Llobregat (Cam A)"
+    },
+    "estacion_b": {
+      "lat": 41.3278,
+      "lon": 1.999,
+      "alt": 12.0,
+      "nombre": "Oeste 8km (Cam B)"
+    },
+    "linea_base_m": 8000.0
+  }
+}
