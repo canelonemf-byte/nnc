@@ -4,6 +4,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from core.ags_core_lora_agents import MetaControllerAGsCore
+from core import live_sources
 
 HOST = os.getenv("NNC_HOST", "127.0.0.1")
 PORT = int(os.getenv("NNC_PORT", "8000"))
@@ -25,11 +26,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            return self._send(200, {"status": "ok", "service": "nnc-ags-core", "data_mode": "simulation_or_user_supplied", "external_sources_connected": False})
+            return self._send(200, {"status": "ok", "service": "nnc-ags-core", "data_mode": "real_public_sources_plus_simulated_components", "external_sources_connected": True, "evidencia_deteccion": "E1"})
         if self.path == "/":
-            return self._send(200, {"service": "NNC + AGs-Core", "endpoints": ["GET /health", "GET /api/status", "POST /api/audit"]})
+            return self._send(200, {"service": "NNC + AGs-Core", "endpoints": ["GET /health", "GET /api/status", "GET /api/live", "POST /api/audit"]})
+        if self.path == "/api/live":
+            return self._send(200, live_sources.snapshot())
         if self.path == "/api/status":
-            return self._send(200, {"status": "running", "audit_endpoint_auth_required": True, "external_sources_connected": False, "scientific_validation": "not_claimed"})
+            return self._send(200, {"status": "running", "audit_endpoint_auth_required": True, "external_sources_connected": True, "live_endpoint": "/api/live", "evidencia_deteccion": "E1", "scientific_validation": "not_claimed"})
         return self._send(404, {"error": "not_found"})
 
     def do_POST(self):

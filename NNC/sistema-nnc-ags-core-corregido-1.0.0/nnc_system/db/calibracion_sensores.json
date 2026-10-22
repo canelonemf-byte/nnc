@@ -2,8 +2,8 @@
   "tipo_datos": "SINTETICOS_NO_MEDICIONES_REALES",
   "calibracion_fisica_validada": false,
   "HEADER_AUTOCALIBRACION": {
-    "timestamp_utc": "2026-10-20T15:06:43Z",
-    "id_calibracion": "CALIB-ISS-1792508803",
+    "timestamp_utc": "2026-10-22T21:16:40Z",
+    "id_calibracion": "CALIB-ISS-1792703800",
     "objeto_referencia": "ISS (NORAD 25544)",
     "estado_calibracion": "SIMULACION_OK_NO_CALIBRACION_REAL"
   },

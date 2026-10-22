@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-10-21T07:00:44Z",
+  "timestamp_utc": "2026-10-22T21:16:40Z",
   "tipo": "pruebas_automatizadas_de_software_no_calibracion_fisica",
   "estatus_global": "PASS",
   "pruebas_pasadas": 7,
@@ -8,43 +8,43 @@
     {
       "nombre": "Conversión WGS84 y rechazo de origen inválido",
       "estado": "PASS",
-      "duracion_ms": 0.263,
+      "duracion_ms": 0.224,
       "detalles": "ecuador y Barcelona WGS84 validados; Barcelona h=10.0000 m"
     },
     {
       "nombre": "Triangulación sintética ENU con blanco conocido",
       "estado": "PASS",
-      "duracion_ms": 0.964,
+      "duracion_ms": 1.611,
       "detalles": "blanco recuperado; gap=3.216e-13 m"
     },
     {
       "nombre": "Entropía de Shannon normalizada",
       "estado": "PASS",
-      "duracion_ms": 1.954,
+      "duracion_ms": 2.713,
       "detalles": "entropía constante=-0.000 bit; variable=3.322 bit"
     },
     {
       "nombre": "EKF: inicialización, actualización y covarianza",
       "estado": "PASS",
-      "duracion_ms": 3.112,
+      "duracion_ms": 3.586,
       "detalles": "estado finito; innovación siguiente=0.200"
     },
     {
       "nombre": "CRC-16/CCITT-FALSE",
       "estado": "PASS",
-      "duracion_ms": 0.013,
+      "duracion_ms": 0.012,
       "detalles": "CRC-16/CCITT-FALSE vector estándar = 0x29B1"
     },
     {
       "nombre": "Autenticación HMAC con rechazo de token inválido",
       "estado": "PASS",
-      "duracion_ms": 0.147,
+      "duracion_ms": 0.1,
       "detalles": "firma válida aceptada; clave incorrecta y token malformado rechazados"
     },
     {
       "nombre": "Etiquetado de telemetría simulada",
       "estado": "PASS",
-      "duracion_ms": 0.04,
+      "duracion_ms": 0.037,
       "detalles": "el subsistema etiqueta explícitamente la telemetría como simulada"
     }
   ]

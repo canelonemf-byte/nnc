@@ -14,6 +14,7 @@ import time
 import os
 from pathlib import Path
 from urllib.parse import urlsplit
+from core import live_sources
 
 PORT = int(os.getenv("PORT", "8080"))
 
@@ -26,14 +27,19 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             asset_file = (assets_root / request_path.removeprefix("/assets/")).resolve()
             if asset_file.is_relative_to(assets_root) and asset_file.is_file():
                 self.send_response(200)
-                if asset_file.endswith(".png"):
+                if str(asset_file).endswith(".png"):
                     self.send_header("Content-Type", "image/png")
-                elif asset_file.endswith(".jpg") or asset_file.endswith(".jpeg"):
+                elif str(asset_file).endswith(".jpg") or str(asset_file).endswith(".jpeg"):
                     self.send_header("Content-Type", "image/jpeg")
                 self.end_headers()
                 with open(asset_file, "rb") as f:
                     self.wfile.write(f.read())
                 return
+
+        if request_path == "/api/live":
+            body = json.dumps(live_sources.snapshot(), ensure_ascii=False).encode("utf-8")
+            self.send_response(200); self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store"); self.end_headers(); self.wfile.write(body); return
 
         if request_path == "/api/status":
             self.send_response(200)
@@ -50,11 +56,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     "LoRA_Space (Exosfera)": {"estado": "SIMULADO_NO_CONECTADO", "latencia_ms": None, "rango": 8},
                     "LoRA_Fauna (Filtro H7)": {"estado": "SIMULADO_NO_CONECTADO", "latencia_ms": None, "rango": 8}
                 },
-                "modo_datos": "DEMO_SIMULADA_SIN_CONECTORES_EXTERNOS",
+                "modo_datos": "MIXTO: /api/live = REAL (OpenSky, ISS, MET Norway, NOAA Kp); resto de este bloque = SIMULADO",
+                "evidencia_deteccion": "E1",
                 "conectores_live": {
-                    "ADSB_1090MHz": "NO_CONECTADO",
-                    "NORAD_ISS_TLE": "NO_CONECTADO",
-                    "NOAA_SWPC_Kp": "NO_CONECTADO",
+                    "ADSB_1090MHz": "REAL via OpenSky Network REST (/api/live)",
+                    "NORAD_ISS_TLE": "REAL posición ISS via wheretheiss.at (/api/live)",
+                    "NOAA_SWPC_Kp": "REAL via NOAA SWPC (/api/live); kp_index 8.5 de abajo es SIMULADO",
                     "Redes_Satelitales_Multiespectrales": "NO_CONECTADO",
                     "Texturas_Externas": "CDN_DEL_NAVEGADOR_SI_HAY_INTERNET",
                     "Mapa_Calor_Diario_Hotspots": "DATOS_DEMO_NO_VERIFICADOS"
@@ -116,7 +123,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NNC Dashboard (datos simulados)</title>
+    <title>NNC Dashboard (REAL + SIMULADO etiquetado)</title>
 
     <!-- Three.js & OrbitControls desde CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -263,6 +270,20 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     </style>
 </head>
 <body>
+<div id="nnc-live" style="position:fixed;bottom:8px;left:8px;z-index:9999;max-width:460px;background:rgba(0,20,0,.88);color:#cfc;font:12px monospace;padding:8px;border:1px solid #3c3;border-radius:6px">
+<b>DATOS REALES (/api/live)</b> · detección <b>E1</b> (no validada) · Lázaro López Paz con asistencia de IA<div id="nnc-live-body">cargando…</div>
+<div style="color:#fc6;margin-top:4px">Globo, radar, mapa de calor, Kp 8.5 y maniobras = <b>SIMULADO</b> (demo).</div></div>
+<script>
+async function nncLive(){try{const r=await fetch('/api/live');const j=await r.json();let h='';
+for(const [k,v] of Object.entries(j.fuentes)){const d=v.datos||{};let t='';
+if(k==='opensky'&&d.n_aeronaves!==undefined)t=d.n_aeronaves+' aeronaves bbox El Prat';
+if(k==='iss'&&d.lat!==undefined)t='ISS '+d.lat.toFixed(2)+','+d.lon.toFixed(2)+' '+d.alt_km.toFixed(0)+' km';
+if(k==='met'&&d.air_temperature!==undefined)t=d.air_temperature+'°C, viento '+d.wind_speed+' m/s (previsión)';
+if(k==='kp'&&d.kp!==undefined)t='Kp '+d.kp;
+h+='<div>['+(v.tipo)+'] '+v.fuente.split(' (')[0]+': '+(t||v.error||'')+' · '+(d.t_fuente_utc||v.obtenido_utc)+'</div>';}
+document.getElementById('nnc-live-body').innerHTML=h;}catch(e){document.getElementById('nnc-live-body').textContent='sin conexión: '+e;}}
+nncLive();setInterval(nncLive,15000);
+</script>
 
     <div id="globe3DContainer"></div>
     <div id="satTooltip" class="sat-tooltip"></div>
@@ -273,7 +294,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             <span style="font-size: 24px;">🌐</span>
             <div>
                 <div class="ge-title">
-                    NNC DASHBOARD (DATOS SIMULADOS) — globo 3D three.js
+                    NNC DASHBOARD (VISUALIZACIÓN SIMULADA; datos reales en panel /api/live) — globo 3D three.js
                     <span style="font-size: 10px; background: #0284c7; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: normal;">NASA BLUE MARBLE HD</span>
                 </div>
                 <div class="ge-subtitle">Rastreador Satelital en Tiempo Real, Reconstrucción 3D WGS84 & Mapa de Calor</div>
@@ -842,5 +863,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"[Dashboard] Iniciando servidor web con visualizador 3D (datos demostrativos; sin conectores live) en http://localhost:{PORT}")
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
     with socketserver.ThreadingTCPServer(("", PORT), DashboardHandler) as httpd:
         httpd.serve_forever()

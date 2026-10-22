@@ -1,7 +1,5 @@
 .venv/
-.nnc_token
 *.pid
 logs/
+.nnc_token
 __pycache__/
-*.png
-*.pdf
