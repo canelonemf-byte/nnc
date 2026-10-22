@@ -1,0 +1,2 @@
+{ "functions": { "api/*.py": { "maxDuration": 30, "includeFiles": "NNC/sistema-nnc-ags-core-corregido-1.0.0/nnc_system/core/**" } },
+  "rewrites": [ { "source": "/api/live", "destination": "/api/live.py" }, { "source": "/health", "destination": "/api/health.py" } ] }

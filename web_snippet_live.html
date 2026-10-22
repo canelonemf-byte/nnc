@@ -1,0 +1,31 @@
+<!-- NNC · Datos reales en el navegador · Lázaro López Paz con asistencia de IA · MIT
+     CORS verificado 2026-10-22: wheretheiss.at, MET Norway, NOAA SWPC = Access-Control-Allow-Origin: *
+     OpenSky = PENDIENTE (solo permite su propio dominio) -> usar servidor NNC (opción C) en NNC_SERVER -->
+<div id="nnc-live" style="font-family:system-ui,sans-serif;border:1px solid #888;border-radius:8px;padding:12px;max-width:640px">
+  <b>NNC · Datos reales en tiempo real</b><br>
+  <small style="color:#b00"><b>Detección E1 (no validada).</b> Las fuentes son reales; la detección de anomalías no está validada científicamente. Cualquier otro gráfico de esta web es SIMULADO.</small>
+  <div id="nnc-live-body">cargando…</div>
+  <small>Lázaro López Paz con asistencia de IA · Fuentes: wheretheiss.at; MET Norway (CC BY 4.0); NOAA SWPC<span id="nnc-os-cite"></span></small>
+</div>
+<script>
+(function(){
+  var NNC_SERVER = ""; // opción C: p.ej. "https://nnc-xxxx.vercel.app" (vacío = OpenSky PENDIENTE)
+  var LAT=41.30, LON=2.08;
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function loc(t){try{return new Date(t).toLocaleString("es-ES",{timeZone:"Europe/Madrid"})+" (Madrid)";}catch(e){return t;}}
+  function row(f,txt,t,tipo){return '<div style="margin:6px 0"><b>'+esc(f)+'</b> <span style="background:'+(tipo==="REAL"?"#2a2":"#c80")+';color:#fff;padding:0 4px;border-radius:3px">'+tipo+'</span><br>'+txt+'<br><small>hora fuente: '+esc(t)+'</small></div>';}
+  var S={
+    iss:{f:"wheretheiss.at (ISS)",u:"https://api.wheretheiss.at/v1/satellites/25544",p:function(d){return {txt:"lat "+d.latitude.toFixed(2)+"°, lon "+d.longitude.toFixed(2)+"°, alt "+d.altitude.toFixed(0)+" km",t:loc(d.timestamp*1000)};}},
+    met:{f:"MET Norway (El Prat)",u:"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat="+LAT+"&lon="+LON,p:function(d){var x=d.properties.timeseries[0];var i=x.data.instant.details;return {txt:"PREVISIÓN (no observación): "+i.air_temperature+" °C, nubes "+i.cloud_area_fraction+" %",t:loc(x.time)};}},
+    kp:{f:"NOAA SWPC índice Kp",u:"https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",p:function(d){var r=d[d.length-1];if(Array.isArray(r)){var h=d[0];var o={};h.forEach(function(k,j){o[k]=r[j];});r=o;}return {txt:"Kp "+(r.Kp!=null?r.Kp:r.kp_index),t:esc(r.time_tag)+" UTC"};}}
+  };
+  function one(k){var s=S[k];return fetch(s.u).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}).then(function(d){var v=s.p(d);return row(s.f,esc(v.txt),v.t,"REAL");}).catch(function(e){return row(s.f,"PENDIENTE: "+esc(e.message),"-","PENDIENTE");});}
+  function opensky(){
+    if(!NNC_SERVER) return Promise.resolve(row("OpenSky Network (ADS-B)","PENDIENTE: OpenSky no permite CORS desde esta web; requiere el servidor NNC (opción C).","-","PENDIENTE"));
+    return fetch(NNC_SERVER.replace(/\/$/,"")+"/api/live").then(function(r){return r.json();}).then(function(j){var o=j.fuentes.opensky;if(o.estado!=="OK")throw new Error(o.error||"sin datos");
+      document.getElementById("nnc-os-cite").textContent=" · OpenSky Network (uso no comercial; Schäfer et al., IPSN 2014)";
+      return row("OpenSky Network vía servidor NNC",o.datos.n_aeronaves+" aeronaves cerca de El Prat",o.datos.t_fuente_utc,"REAL");}).catch(function(e){return row("OpenSky Network","PENDIENTE: "+esc(e.message),"-","PENDIENTE");});}
+  function run(){Promise.all([one("iss"),one("met"),one("kp"),opensky()]).then(function(h){document.getElementById("nnc-live-body").innerHTML=h.join("")+'<small>actualizado: '+loc(Date.now())+'</small>';});}
+  run(); setInterval(run,30000);
+})();
+</script>

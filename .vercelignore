@@ -1,0 +1,6 @@
+.venv
+logs
+*.pid
+.nnc_token
+**/__pycache__
+**/db
