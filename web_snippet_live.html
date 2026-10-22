@@ -9,7 +9,7 @@
 </div>
 <script>
 (function(){
-  var NNC_SERVER = ""; // opción C: p.ej. "https://nnc-xxxx.vercel.app" (vacío = OpenSky PENDIENTE)
+  var NNC_SERVER = "https://nnc-live-lazaro-lopez-paz.vercel.app"; // opción C desplegada (Vercel Hobby, 2026-10-22 23:53 CEST). OpenSky desde la nube: timeout -> se muestra PENDIENTE
   var LAT=41.30, LON=2.08;
   function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
   function loc(t){try{return new Date(t).toLocaleString("es-ES",{timeZone:"Europe/Madrid"})+" (Madrid)";}catch(e){return t;}}

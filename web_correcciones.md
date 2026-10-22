@@ -50,3 +50,10 @@ fetch('https://api.wheretheiss.at/v1/satellites/25544').then(r=>r.json()).then(d
 
 **Post Control del espacio aéreo:**
 > Control del espacio aéreo (demo): visualización con datos SIMULADOS, no tráfico en vivo. Detección de anomalías en nivel E1, sin validación externa. Siguiente paso: conectar datos ADS-B reales con atribución a OpenSky Network. Lázaro López Paz, con asistencia de IA.
+
+## Servidor NNC desplegado (opción C) — 2026-10-22 23:53 CEST
+- URL de producción: https://nnc-live-lazaro-lopez-paz.vercel.app (`/health`, `/api/live`), proyecto Vercel `nnc-live`, equipo `lazaro-lopez-paz`, Vercel Authentication desactivada (público por diseño).
+- CORS: solo https://quartz-trail-summit-turbo.grok.me y https://drift-hazel-urban-dawn.grok.me (`Vary: Origin`).
+- Verificado 23:53 CEST: ISS, MET Norway (previsión) y NOAA Kp = REAL/OK.
+- OpenSky desde la nube: PENDIENTE (timeout desde Vercel iad1). Requiere credenciales OpenSky del usuario o servidor no-cloud. El snippet lo muestra como PENDIENTE; no se simula.
+- `web_snippet_live.html` ya incluye `NNC_SERVER`; pegar el snippet completo en ambas webs.

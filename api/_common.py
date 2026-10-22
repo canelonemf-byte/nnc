@@ -15,8 +15,8 @@ def send(h, code, payload):
     origin = h.headers.get("Origin", "")
     if origin in allowed_origins():
         h.send_header("Access-Control-Allow-Origin", origin)
-        h.send_header("Vary", "Origin")
         h.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+    h.send_header("Vary", "Origin")
     h.send_header("Content-Type", "application/json; charset=utf-8")
     h.send_header("Cache-Control", "public, s-maxage=15, stale-while-revalidate=30")
     h.send_header("Content-Length", str(len(body)))
