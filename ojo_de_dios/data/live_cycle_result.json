@@ -1,0 +1,612 @@
+{
+  "meta": {
+    "proyecto": "ojo_de_dios_nnc",
+    "version": "2.0",
+    "generated_at_madrid": "2026-10-30T19:30:53+01:00",
+    "station": {
+      "name": "El Prat de Llobregat (approx)",
+      "lat_deg": 41.3275,
+      "lon_deg": 2.095,
+      "h_m": 10.0,
+      "coord_status": "PENDIENTE_DE_VERIFICACION",
+      "coord_note": "Approximate town-centre WGS84; not a real surveyed NNC station.",
+      "timezone": "Europe/Madrid"
+    },
+    "hardware": {
+      "camaras": 1,
+      "camaras_duales": false,
+      "baseline_m": null,
+      "gnss": false,
+      "gnss_pps": false,
+      "ntp": false,
+      "espectro": false,
+      "polarimetria": false,
+      "lora": false,
+      "rtl_sdr_1090": false
+    },
+    "equations": {
+      "wgs84_to_ecef": "N=a/sqrt(1-e2*sin^2(phi)); X=(N+h)cos(phi)cos(lam); Y=(N+h)cos(phi)sin(lam); Z=(N(1-e2)+h)sin(phi); a=6378137; f=1/298.257223563; e2=f(2-f)",
+      "angular_sep_azel": "hav(theta)=hav(Delta_el)+cos(el1)cos(el2)hav(Delta_az); theta=2*asin(sqrt(hav)); az~lon, el~lat on unit sphere",
+      "backoff_429": "delay_s = min(2^attempt, 16) or Retry-After if present; attempts={0,1,2,3}; cache_ttl_meteo=900s",
+      "sgp4": "SGP4/SDP4 via skyfield EarthSatellite from Celestrak GP/TLE (NORAD)",
+      "evidence_cap": "without dual cameras+GNSS/NTP: max E3; without measured H_kin: no anomaly claim beyond no_identificado_insuficiente"
+    },
+    "note": "Aircraft and ISS from live APIs; FANI case is SIMULACION only."
+  },
+  "live_api_table": [
+    {
+      "api": "meteo",
+      "fuente": "open_meteo",
+      "http_status": 200,
+      "time_madrid": "2026-10-30T19:30:51+01:00",
+      "ok": true,
+      "sample": {
+        "cloud_cover_pct": 54,
+        "wind_speed_10m": 5.3,
+        "wind_direction_10m_deg": 62,
+        "visibility_m": 36160.0
+      }
+    },
+    {
+      "api": "tle_celestrak",
+      "fuente": "celestrak",
+      "http_status": 200,
+      "time_madrid": "2026-10-30T19:30:51+01:00",
+      "ok": true,
+      "sample": {
+        "norad": 25544,
+        "object": "ISS (ZARYA)",
+        "epoch": "2026-10-30T11:12:14.281344"
+      }
+    },
+    {
+      "api": "adsb",
+      "fuente": "adsb_lol",
+      "http_status": 200,
+      "time_madrid": "2026-10-30T19:30:52+01:00",
+      "ok": true,
+      "sample": {
+        "count": 33,
+        "nearest_flight": "RYR64SM"
+      }
+    },
+    {
+      "api": "opensky",
+      "fuente": "opensky",
+      "http_status": 200,
+      "time_madrid": "2026-10-30T19:30:53+01:00",
+      "ok": true,
+      "sample": {
+        "bytes": 2728
+      }
+    },
+    {
+      "api": "airplanes_live",
+      "fuente": "airplanes_live",
+      "http_status": 403,
+      "time_madrid": "2026-10-30T19:30:53+01:00",
+      "ok": false,
+      "sample": {
+        "error": "{\"error\": \"Please contact us at contact@airplanes.live. Your email MUST include any links, a description of the project,"
+      }
+    },
+    {
+      "api": "met_norway",
+      "fuente": "met_norway",
+      "http_status": 200,
+      "time_madrid": "2026-10-30T19:30:53+01:00",
+      "ok": true,
+      "sample": {}
+    }
+  ],
+  "real_aircraft": {
+    "ezy95fn_present": false,
+    "ezy95fn_note": "EZY95FN not in current ADS-B snapshot; using nearest airborne instead.",
+    "chosen": {
+      "hex": "405ee1",
+      "flight": "BAW486L",
+      "lat": 41.335501,
+      "lon": 2.190711,
+      "alt_ft": 1250.0,
+      "on_ground": false,
+      "gs_kt": 166.9,
+      "track_deg": 245.58,
+      "dist_km": 8.041,
+      "az_deg": 83.616,
+      "el_deg": 2.713,
+      "fuente": "adsb_lol"
+    },
+    "fuente": "adsb_lol"
+  },
+  "iss_pass": {
+    "norad": 25544,
+    "tle_epoch": "2026-10-30T11:12:14.281344",
+    "tle_fuente": "celestrak",
+    "next_culmination": {
+      "event": "culminate",
+      "t_utc": "2026-10-30T22:14:44Z",
+      "t_madrid": "2026-10-30T23:14:43+01:00",
+      "az_deg": 132.579,
+      "el_deg": 19.676,
+      "range_km": 1039.29
+    },
+    "events_count": 18
+  },
+  "ecef_station": {
+    "x_m": 4793452.409606804,
+    "y_m": 175349.05188666444,
+    "z_m": 4189811.1453849245,
+    "n_m": 6387467.195132276,
+    "input_sha256": "def008679b21ef64e4c5dcc907a870e02325021e6c809393dff88e1ccbd99b67",
+    "coord_status": "PENDIENTE_DE_VERIFICACION"
+  },
+  "detecciones": [
+    {
+      "id": "det_live_aircraft",
+      "modo": "experimento",
+      "t": "2026-10-30T18:30:53.794374+00:00",
+      "az_deg": 83.616,
+      "el_deg": 2.713,
+      "station": {
+        "lat_deg": 41.3275,
+        "lon_deg": 2.095,
+        "coord_status": "PENDIENTE_DE_VERIFICACION"
+      },
+      "hardware": {
+        "camaras_duales": false,
+        "gnss": false,
+        "ntp": false
+      },
+      "hipotesis": {
+        "h0": false,
+        "h1": true,
+        "h2": false,
+        "h3": false,
+        "h4": false,
+        "h5": false,
+        "h6": false,
+        "h7": false,
+        "h_kin": false,
+        "h_mat": false
+      },
+      "detalles": {
+        "h0": {
+          "single_frame": false,
+          "artefacto": false
+        },
+        "h1": {
+          "fuente": "adsb_lol",
+          "matches": [
+            {
+              "hex": "405ee1",
+              "flight": "BAW486L",
+              "lat": 41.335501,
+              "lon": 2.190711,
+              "alt_ft": 1250.0,
+              "on_ground": false,
+              "gs_kt": 166.9,
+              "track_deg": 245.58,
+              "dist_km": 8.041,
+              "az_deg": 83.616,
+              "el_deg": 2.713,
+              "fuente": "adsb_lol"
+            }
+          ],
+          "sep_threshold_deg": 0.5,
+          "dt_threshold_s": 5.0,
+          "ezy95fn_present": false
+        },
+        "h_kin": {
+          "status": "no_medible_sin_camara_dual",
+          "note": "H_kin requiere triangulacion dual + tiempo sync"
+        },
+        "h_mat": {
+          "status": "sin_sensor"
+        }
+      },
+      "excluido_por": "h1",
+      "resultado": "aeronave_identificada",
+      "evidencia": "E3",
+      "riesgos": [
+        "h_kin_no_medible"
+      ],
+      "orden_evaluacion": [
+        "h0",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "h7",
+        "h_kin",
+        "h_mat"
+      ],
+      "evaluado_at_madrid": "2026-10-30T19:30:53+01:00",
+      "lora_uplink": {
+        "protocol": "ojo_de_dios_lora_v1",
+        "status": "PENDIENTE_DE_VERIFICACION",
+        "hardware_lora": false,
+        "max_payload_bytes": 51,
+        "fields": {
+          "magic": "OD",
+          "version": 1,
+          "flags": 1,
+          "unix_ts": 0,
+          "az_cdeg": 8362,
+          "el_cdeg": 271,
+          "evidence": 3,
+          "excluded_by_code": 2,
+          "ecef_x_m": 4793452,
+          "ecef_y_m": 175349,
+          "ecef_z_m": 4189811,
+          "det_id": "det_live_aircraft",
+          "resultado": "aeronave_identificada"
+        },
+        "note": "Schema only; no LoRa radio present. UNTESTED.",
+        "packed_hex": "4f4401010000000020aa010f03020049246c0002acf5003fee73",
+        "packed_len": 26
+      },
+      "ags_core": {
+        "schema": "ags_core_supervisor_v1",
+        "status": "PENDIENTE_DE_VERIFICACION",
+        "untested": true,
+        "proyecto": "ojo_de_dios_nnc",
+        "version": "2.0",
+        "supervisor": {
+          "action": "ingest_detection",
+          "priority": "normal",
+          "evidence": "E3",
+          "resultado": "aeronave_identificada",
+          "excluido_por": "h1",
+          "modo": "experimento",
+          "detection_id": "det_live_aircraft",
+          "riesgos": [
+            "h_kin_no_medible"
+          ]
+        },
+        "lora_uplink": {
+          "protocol": "ojo_de_dios_lora_v1",
+          "status": "PENDIENTE_DE_VERIFICACION",
+          "hardware_lora": false,
+          "max_payload_bytes": 51,
+          "fields": {
+            "magic": "OD",
+            "version": 1,
+            "flags": 1,
+            "unix_ts": 0,
+            "az_cdeg": 8362,
+            "el_cdeg": 271,
+            "evidence": 3,
+            "excluded_by_code": 2,
+            "ecef_x_m": 4793452,
+            "ecef_y_m": 175349,
+            "ecef_z_m": 4189811,
+            "det_id": "det_live_aircraft",
+            "resultado": "aeronave_identificada"
+          },
+          "note": "Schema only; no LoRa radio present. UNTESTED.",
+          "packed_hex": "4f4401010000000020aa010f03020049246c0002acf5003fee73",
+          "packed_len": 26
+        },
+        "note": "AGs-Core+LoRa defined for future wire-up; no hardware / no supervisor endpoint live."
+      }
+    },
+    {
+      "id": "det_live_iss",
+      "modo": "experimento",
+      "t": "2026-10-30T22:14:44Z",
+      "az_deg": 132.579,
+      "el_deg": 19.676,
+      "station": {
+        "lat_deg": 41.3275,
+        "lon_deg": 2.095,
+        "coord_status": "PENDIENTE_DE_VERIFICACION"
+      },
+      "hardware": {
+        "camaras_duales": false,
+        "gnss": false,
+        "ntp": false
+      },
+      "hipotesis": {
+        "h0": false,
+        "h1": false,
+        "h2": true,
+        "h3": false,
+        "h4": false,
+        "h5": false,
+        "h6": false,
+        "h7": false,
+        "h_kin": false,
+        "h_mat": false
+      },
+      "detalles": {
+        "h0": {
+          "single_frame": false,
+          "artefacto": false
+        },
+        "h1": {
+          "fuente": "adsb_lol",
+          "matches": [],
+          "sep_threshold_deg": 0.5,
+          "dt_threshold_s": 5.0,
+          "ezy95fn_present": false
+        },
+        "h2": {
+          "norad": 25544,
+          "forced": true,
+          "sep_threshold_deg": 0.3,
+          "dt_threshold_s": 3.0,
+          "note": "force_h2 set (caller supplies known pass geometry)"
+        },
+        "h_kin": {
+          "status": "no_medible_sin_camara_dual",
+          "note": "H_kin requiere triangulacion dual + tiempo sync"
+        },
+        "h_mat": {
+          "status": "sin_sensor"
+        }
+      },
+      "excluido_por": "h2",
+      "resultado": "satelite_identificado",
+      "evidencia": "E3",
+      "riesgos": [
+        "h_kin_no_medible"
+      ],
+      "orden_evaluacion": [
+        "h0",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "h7",
+        "h_kin",
+        "h_mat"
+      ],
+      "evaluado_at_madrid": "2026-10-30T19:30:53+01:00",
+      "lora_uplink": {
+        "protocol": "ojo_de_dios_lora_v1",
+        "status": "PENDIENTE_DE_VERIFICACION",
+        "hardware_lora": false,
+        "max_payload_bytes": 51,
+        "fields": {
+          "magic": "OD",
+          "version": 1,
+          "flags": 1,
+          "unix_ts": 0,
+          "az_cdeg": 13258,
+          "el_cdeg": 1968,
+          "evidence": 3,
+          "excluded_by_code": 3,
+          "ecef_x_m": 4793452,
+          "ecef_y_m": 175349,
+          "ecef_z_m": 4189811,
+          "det_id": "det_live_iss",
+          "resultado": "satelite_identificado"
+        },
+        "note": "Schema only; no LoRa radio present. UNTESTED.",
+        "packed_hex": "4f4401010000000033ca07b003030049246c0002acf5003fee73",
+        "packed_len": 26
+      },
+      "ags_core": {
+        "schema": "ags_core_supervisor_v1",
+        "status": "PENDIENTE_DE_VERIFICACION",
+        "untested": true,
+        "proyecto": "ojo_de_dios_nnc",
+        "version": "2.0",
+        "supervisor": {
+          "action": "ingest_detection",
+          "priority": "normal",
+          "evidence": "E3",
+          "resultado": "satelite_identificado",
+          "excluido_por": "h2",
+          "modo": "experimento",
+          "detection_id": "det_live_iss",
+          "riesgos": [
+            "h_kin_no_medible"
+          ]
+        },
+        "lora_uplink": {
+          "protocol": "ojo_de_dios_lora_v1",
+          "status": "PENDIENTE_DE_VERIFICACION",
+          "hardware_lora": false,
+          "max_payload_bytes": 51,
+          "fields": {
+            "magic": "OD",
+            "version": 1,
+            "flags": 1,
+            "unix_ts": 0,
+            "az_cdeg": 13258,
+            "el_cdeg": 1968,
+            "evidence": 3,
+            "excluded_by_code": 3,
+            "ecef_x_m": 4793452,
+            "ecef_y_m": 175349,
+            "ecef_z_m": 4189811,
+            "det_id": "det_live_iss",
+            "resultado": "satelite_identificado"
+          },
+          "note": "Schema only; no LoRa radio present. UNTESTED.",
+          "packed_hex": "4f4401010000000033ca07b003030049246c0002acf5003fee73",
+          "packed_len": 26
+        },
+        "note": "AGs-Core+LoRa defined for future wire-up; no hardware / no supervisor endpoint live."
+      }
+    },
+    {
+      "id": "det_sim_fani",
+      "modo": "simulacion",
+      "t": "2026-10-30T18:30:53.794820+00:00",
+      "az_deg": 42.0,
+      "el_deg": 55.0,
+      "station": {
+        "lat_deg": 41.3275,
+        "lon_deg": 2.095,
+        "coord_status": "PENDIENTE_DE_VERIFICACION"
+      },
+      "hardware": {
+        "camaras_duales": false,
+        "gnss": false,
+        "ntp": false
+      },
+      "hipotesis": {
+        "h0": false,
+        "h1": false,
+        "h2": false,
+        "h3": false,
+        "h4": false,
+        "h5": false,
+        "h6": false,
+        "h7": false,
+        "h_kin": false,
+        "h_mat": false
+      },
+      "detalles": {
+        "h0": {
+          "single_frame": false,
+          "artefacto": false
+        },
+        "h1": {
+          "fuente": "adsb_lol",
+          "matches": [],
+          "sep_threshold_deg": 0.5,
+          "dt_threshold_s": 5.0,
+          "ezy95fn_present": false
+        },
+        "h2": {
+          "norad": 25544,
+          "sat_az_deg": 222.1593,
+          "sat_el_deg": -55.3511,
+          "sep_deg": 179.6373,
+          "sep_threshold_deg": 0.3,
+          "dt_threshold_s": 3.0,
+          "tle_fuente": "celestrak"
+        },
+        "h3": {
+          "matched": false,
+          "sep_max_deg": 0.2,
+          "hits": [],
+          "bodies_checked": 7
+        },
+        "h4": {
+          "status": "indeterminado",
+          "note": "requiere serie temporal + perfil de viento; PENDIENTE_DE_VERIFICACION"
+        },
+        "h5": {
+          "status": "indeterminado",
+          "note": "sin camaras duales no hay paralaje; PENDIENTE_DE_VERIFICACION"
+        },
+        "h6": {
+          "duration_s": 25.0,
+          "trajectory_linear": false,
+          "threshold_s": 3.0
+        },
+        "h7": {
+          "optical_geometry_coherent": false
+        },
+        "h_kin": {
+          "status": "no_medible_sin_camara_dual",
+          "note": "H_kin requiere triangulacion dual + tiempo sync"
+        },
+        "h_mat": {
+          "status": "sin_sensor"
+        },
+        "anomaly_claim": false,
+        "anomaly_rule": "sin H_kin medido no se declara anomalia"
+      },
+      "excluido_por": "",
+      "resultado": "no_identificado_insuficiente",
+      "evidencia": "E2",
+      "riesgos": [
+        "h4_no_descartable_sin_viento_serie",
+        "h5_no_descartable_sin_triangulacion",
+        "h_kin_no_medible"
+      ],
+      "orden_evaluacion": [
+        "h0",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "h7",
+        "h_kin",
+        "h_mat"
+      ],
+      "evaluado_at_madrid": "2026-10-30T19:30:53+01:00",
+      "lora_uplink": {
+        "protocol": "ojo_de_dios_lora_v1",
+        "status": "PENDIENTE_DE_VERIFICACION",
+        "hardware_lora": false,
+        "max_payload_bytes": 51,
+        "fields": {
+          "magic": "OD",
+          "version": 1,
+          "flags": 0,
+          "unix_ts": 0,
+          "az_cdeg": 4200,
+          "el_cdeg": 5500,
+          "evidence": 2,
+          "excluded_by_code": 0,
+          "ecef_x_m": 4793452,
+          "ecef_y_m": 175349,
+          "ecef_z_m": 4189811,
+          "det_id": "det_sim_fani",
+          "resultado": "no_identificado_insuficiente"
+        },
+        "note": "Schema only; no LoRa radio present. UNTESTED.",
+        "packed_hex": "4f440100000000001068157c02000049246c0002acf5003fee73",
+        "packed_len": 26
+      },
+      "ags_core": {
+        "schema": "ags_core_supervisor_v1",
+        "status": "PENDIENTE_DE_VERIFICACION",
+        "untested": true,
+        "proyecto": "ojo_de_dios_nnc",
+        "version": "2.0",
+        "supervisor": {
+          "action": "ingest_detection",
+          "priority": "review",
+          "evidence": "E2",
+          "resultado": "no_identificado_insuficiente",
+          "excluido_por": "",
+          "modo": "simulacion",
+          "detection_id": "det_sim_fani",
+          "riesgos": [
+            "h4_no_descartable_sin_viento_serie",
+            "h5_no_descartable_sin_triangulacion",
+            "h_kin_no_medible"
+          ]
+        },
+        "lora_uplink": {
+          "protocol": "ojo_de_dios_lora_v1",
+          "status": "PENDIENTE_DE_VERIFICACION",
+          "hardware_lora": false,
+          "max_payload_bytes": 51,
+          "fields": {
+            "magic": "OD",
+            "version": 1,
+            "flags": 0,
+            "unix_ts": 0,
+            "az_cdeg": 4200,
+            "el_cdeg": 5500,
+            "evidence": 2,
+            "excluded_by_code": 0,
+            "ecef_x_m": 4793452,
+            "ecef_y_m": 175349,
+            "ecef_z_m": 4189811,
+            "det_id": "det_sim_fani",
+            "resultado": "no_identificado_insuficiente"
+          },
+          "note": "Schema only; no LoRa radio present. UNTESTED.",
+          "packed_hex": "4f440100000000001068157c02000049246c0002acf5003fee73",
+          "packed_len": 26
+        },
+        "note": "AGs-Core+LoRa defined for future wire-up; no hardware / no supervisor endpoint live."
+      }
+    }
+  ]
+}
