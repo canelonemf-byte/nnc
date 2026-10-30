@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "http_status": 200,
+  "fuente": "open_meteo",
+  "cloud_cover_pct": 54,
+  "visibility_m": 36160.0,
+  "wind_speed_10m": 5.3,
+  "wind_speed_unit": "km/h",
+  "wind_direction_10m_deg": 62,
+  "api_time": "2026-10-30T19:30",
+  "fetched_at_madrid": "2026-10-30T19:30:51+01:00",
+  "raw_keys": [
+    "time",
+    "interval",
+    "cloud_cover",
+    "visibility",
+    "wind_speed_10m",
+    "wind_direction_10m"
+  ],
+  "_cached_at": 1793385051.1163476,
+  "cache_hit": false
+}

@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "http_status": 200,
+  "fuente": "celestrak",
+  "norad": 25544,
+  "gp": {
+    "OBJECT_NAME": "ISS (ZARYA)",
+    "OBJECT_ID": "1998-067A",
+    "EPOCH": "2026-10-30T11:12:14.281344",
+    "MEAN_MOTION": 15.49116094,
+    "ECCENTRICITY": 0.00070603,
+    "INCLINATION": 51.6332,
+    "RA_OF_ASC_NODE": 350.6604,
+    "ARG_OF_PERICENTER": 327.9433,
+    "MEAN_ANOMALY": 32.1125,
+    "EPHEMERIS_TYPE": 0,
+    "CLASSIFICATION_TYPE": "U",
+    "NORAD_CAT_ID": 25544,
+    "ELEMENT_SET_NO": 999,
+    "REV_AT_EPOCH": 59272,
+    "BSTAR": 0.000136016,
+    "MEAN_MOTION_DOT": 7.083e-05,
+    "MEAN_MOTION_DDOT": 0
+  },
+  "tle_text": "ISS (ZARYA)             \r\n1 25544U 98067A   26303.46683196  .00007083  00000+0  13602-3 0  9999\r\n2 25544  51.6332 350.6604 0007060 327.9433  32.1125 15.49116094592729",
+  "fetched_at_madrid": "2026-10-30T19:30:51+01:00",
+  "_cached_at": 1793385051.717142,
+  "cache_hit": false
+}
