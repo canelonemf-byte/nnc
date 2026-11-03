@@ -3,3 +3,7 @@
 logs/
 .nnc_token
 __pycache__/
+
+# informes runtime por app
+data/
+reports/

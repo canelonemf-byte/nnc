@@ -310,6 +310,32 @@ nncLive();setInterval(nncLive,15000);
             <div class="pulse-dot"></div>
             <span>11 REDES SATELITALES LIVE</span>
         </div>
+        <div id="ags-visit-badge" style="margin-left:12px;display:inline-flex;align-items:center;gap:8px;
+             background:#1E1E1E;border:1px solid #4CAF50;border-radius:999px;padding:6px 14px;
+             color:#E8F5E9;font:600 0.9rem DejaVu Sans,sans-serif;">👀 … visitas</div>
+        <script>
+        (function(){
+          var APP="nnc_dashboard";
+          var API="http://127.0.0.1:8000";
+          var key="ags_vid_"+APP;
+          var vid=localStorage.getItem(key);
+          if(!vid){vid=([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,function(c){
+            return (c^(crypto.getRandomValues(new Uint8Array(1))[0]&(15>>c/4))).toString(16);
+          }); localStorage.setItem(key,vid);}
+          function paint(d){
+            var el=document.getElementById("ags-visit-badge");
+            if(!el||!d)return;
+            var t=(d.total_visits||0).toLocaleString("es-ES");
+            var u=(d.unique_users||0).toLocaleString("es-ES");
+            el.textContent="👀 "+t+" visitas · "+u+" únicos";
+          }
+          fetch(API+"/metrics/visit/"+APP+"?visitor_id="+encodeURIComponent(vid),{credentials:"omit"})
+            .then(function(r){return r.json();}).then(paint)
+            .catch(function(){
+              fetch(API+"/metrics/"+APP).then(function(r){return r.json();}).then(paint).catch(function(){});
+            });
+        })();
+        </script>
     </div>
 
     <!-- Left Controls Panel -->

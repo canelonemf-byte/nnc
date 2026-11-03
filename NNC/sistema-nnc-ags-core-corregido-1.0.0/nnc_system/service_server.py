@@ -3,6 +3,9 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import urllib.request
+import urllib.parse
+import urllib.error
 from core.ags_core_lora_agents import MetaControllerAGsCore
 from core import live_sources
 
@@ -11,6 +14,16 @@ PORT = int(os.getenv("NNC_PORT", "8000"))
 API_TOKEN = os.getenv("NNC_API_TOKEN", "")
 if API_TOKEN and len(API_TOKEN) < 32:
     raise SystemExit("NNC_API_TOKEN debe tener al menos 32 caracteres; genere un secreto aleatorio.")
+
+
+def _ags_metrics(path_suffix: str):
+    """Proxy al contador por-app de AGs-Core (127.0.0.1:8000). Fallo → None."""
+    url = "http://127.0.0.1:8000" + path_suffix
+    try:
+        with urllib.request.urlopen(url, timeout=2) as r:
+            return r.status, r.read(), r.headers.get("Content-Type", "application/json")
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return None, None, None
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "NNC-AGsCore/1.0"
@@ -25,6 +38,34 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+
+        if self.path in ("/badge.svg", "/metrics/badge.svg"):
+            st, body, ctype = _ags_metrics("/metrics/badge/nnc_api.svg")
+            if st and body is not None:
+                self.send_response(200)
+                self.send_header("Content-Type", ctype or "image/svg+xml")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            return self._send(503, {"error": "metrics_unavailable"})
+        if self.path in ("/visitas", "/metrics"):
+            # cuenta visita de la API REST NNC (visitor opaco por cabecera o aleatorio corto)
+            vid = self.headers.get("X-Visitor-Id") or ("nnc-api-" + os.urandom(8).hex())
+            st, body, ctype = _ags_metrics(
+                "/metrics/visit/nnc_api?visitor_id=" + urllib.parse.quote(vid)
+            )
+            if st and body is not None:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            return self._send(503, {"error": "metrics_unavailable"})
+
         if self.path == "/health":
             return self._send(200, {"status": "ok", "service": "nnc-ags-core", "data_mode": "real_public_sources_plus_simulated_components", "external_sources_connected": True, "evidencia_deteccion": "E1"})
         if self.path == "/":
