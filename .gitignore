@@ -7,3 +7,4 @@ __pycache__/
 # informes runtime por app
 data/
 reports/
+*.egg-info/

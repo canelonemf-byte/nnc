@@ -1,1 +1,2 @@
 # solo stdlib; sin dependencias externas
+# Pruebas de Ojo de Dios: pip install -r ojo_de_dios/requirements.txt
