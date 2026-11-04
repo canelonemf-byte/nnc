@@ -290,26 +290,6 @@ nncLive();setInterval(nncLive,15000);
 
     <!-- Top Navbar -->
     <div class="ge-navbar">
-        <div class="ge-brand">
-            <span style="font-size: 24px;">🌐</span>
-            <div>
-                <div class="ge-title">
-                    NNC DASHBOARD (VISUALIZACIÓN SIMULADA; datos reales en panel /api/live) — globo 3D three.js
-                    <span style="font-size: 10px; background: #0284c7; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: normal;">NASA BLUE MARBLE HD</span>
-                </div>
-                <div class="ge-subtitle">Rastreador Satelital en Tiempo Real, Reconstrucción 3D WGS84 & Mapa de Calor</div>
-            </div>
-        </div>
-
-        <div class="ge-search-box">
-            <span style="color: #64748b;">🔍</span>
-            <input type="text" class="ge-search-input" id="geSearch" placeholder="Buscar coordenadas (ej: 41.38, 2.16 o Barcelona)..." onkeydown="handleSearch(event)">
-        </div>
-
-        <div class="status-badge-live">
-            <div class="pulse-dot"></div>
-            <span>11 REDES SATELITALES LIVE</span>
-        </div>
         <div id="ags-visit-badge" style="margin-left:12px;display:inline-flex;align-items:center;gap:8px;
              background:#1E1E1E;border:1px solid #4CAF50;border-radius:999px;padding:6px 14px;
              color:#E8F5E9;font:600 0.9rem DejaVu Sans,sans-serif;">👀 … visitas</div>
@@ -336,7 +316,28 @@ nncLive();setInterval(nncLive,15000);
             });
         })();
         </script>
-    </div>
+
+        <div class="ge-brand">
+            <span style="font-size: 24px;">🌐</span>
+            <div>
+                <div class="ge-title">
+                    NNC DASHBOARD (VISUALIZACIÓN SIMULADA; datos reales en panel /api/live) — globo 3D three.js
+                    <span style="font-size: 10px; background: #0284c7; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: normal;">NASA BLUE MARBLE HD</span>
+                </div>
+                <div class="ge-subtitle">Rastreador Satelital en Tiempo Real, Reconstrucción 3D WGS84 & Mapa de Calor</div>
+            </div>
+        </div>
+
+        <div class="ge-search-box">
+            <span style="color: #64748b;">🔍</span>
+            <input type="text" class="ge-search-input" id="geSearch" placeholder="Buscar coordenadas (ej: 41.38, 2.16 o Barcelona)..." onkeydown="handleSearch(event)">
+        </div>
+
+        <div class="status-badge-live">
+            <div class="pulse-dot"></div>
+            <span>11 REDES SATELITALES LIVE</span>
+        </div>
+        </div>
 
     <!-- Left Controls Panel -->
     <div class="ge-sidebar">
