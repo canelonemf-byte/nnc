@@ -16,14 +16,16 @@ Proyecto en desarrollo / documentación. No afirmar validación experimental sal
 ## Contenido (raíz)
 
 ```
-.vercelignore
-__pycache__/
-api/
-DESPLIEGUE.md
-NNC/
-requirements.txt
-start_nnc.sh
-tests_deploy.py
+.github/workflows/ci.yml   CI: py_compile + pytest
+api/                       funciones Vercel (/api/live, /health)
+DESPLIEGUE.md              despliegue en Vercel
+NNC/                       sistema NNC (dashboard :8080, servicio REST :8010, build-beta con vista Ojo de Dios, ver NNC/build-beta/README_OJO.md)
+ojo_de_dios/               módulo Ojo de Dios (src/ + tests/, requirements.txt propio)
+pytest.ini                 pythonpath ojo_de_dios/src; tests en ojo_de_dios/tests, NNC/build-beta/tests y tests/
+requirements.txt           raíz: solo stdlib (funciones Vercel)
+start_nnc.sh               arranque local de dashboard y servicio
+tests/                     test_deploy_cors.py (ejecuta tests_deploy.py dentro de pytest)
+tests_deploy.py            prueba local del handler /api/live con CORS (sin red)
 vercel.json
 web_correcciones.md
 web_snippet_live.html
@@ -32,9 +34,22 @@ web_snippet_live.html
 ## Instalación
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt                 # funciones Vercel (stdlib)
+pip install -r ojo_de_dios/requirements.txt     # Ojo de Dios y pruebas
 ```
 
+## Pruebas
+
+```bash
+python -m pytest -q          # Ojo de Dios + vista Ojo NNC/build-beta + CORS de /api/live (sin red)
+```
+
+## Operación local
+
+En el equipo de trabajo NNC corre desde `/workspace/agsgpt/NNC` con su propio venv (`.venv`):
+dashboard en `http://127.0.0.1:8080/` y servicio REST en `http://127.0.0.1:8010/health`
+(`start_nnc.sh`; tras una restauración del equipo: `ags-core-v3.6/scripts/recuperar_todo.sh`).
+Despliegue público `nnc-live.vercel.app`: devolvía 404 el 2026-11-11 (redespliegue PENDIENTE).
 
 ## Uso
 
