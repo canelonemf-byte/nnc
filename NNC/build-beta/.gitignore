@@ -1,0 +1,5 @@
+# Runtime local de la vista Ojo de Dios (historial JSONL, logs, detecciones locales)
+data/
+*.pid
+*.log
+__pycache__/

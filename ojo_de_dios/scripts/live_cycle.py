@@ -20,7 +20,9 @@ from ojo_de_dios.hypotheses import evaluate_detection
 from ojo_de_dios.math_geo import equations_doc, sha256_canonical, wgs84_to_ecef
 
 MADRID = ZoneInfo("Europe/Madrid")
-OUT = ROOT / "data" / "live_cycle_result.json"
+RUNS = ROOT / "data" / "runs"
+RUNS.mkdir(parents=True, exist_ok=True)
+OUT = ROOT / "data" / "live_cycle_result.json"  # latest copy
 
 
 def probe_table() -> list[dict]:
@@ -43,7 +45,7 @@ def probe_table() -> list[dict]:
         }
     )
     # TLE
-    tle = tle_mod.fetch_celestrak_tle(25544, force=True)
+    tle = tle_mod.fetch_celestrak_tle(25544, force=False)  # respeta cache 6h (politica Celestrak)
     rows.append(
         {
             "api": "tle_celestrak",
@@ -77,15 +79,27 @@ def probe_table() -> list[dict]:
     import httpx
     from ojo_de_dios.config import USER_AGENT
 
+    class _Err:
+        def __init__(self, e):
+            self.status_code = f"error:{type(e).__name__}"
+            self.content = b""
+            self.text = str(e)[:120]
+
+    def _safe(client, *a, **k):
+        try:
+            return client.get(*a, **k)
+        except httpx.HTTPError as e:
+            return _Err(e)
+
     with httpx.Client(timeout=20.0, headers={"User-Agent": USER_AGENT}) as client:
-        r_al = client.get(
+        r_al = _safe(client,
             f"https://api.airplanes.live/v2/point/{STATION['lat_deg']}/{STATION['lon_deg']}/50"
         )
-        r_os = client.get(
+        r_os = _safe(client,
             "https://opensky-network.org/api/states/all",
             params={"lamin": 41.0, "lamax": 41.6, "lomin": 1.7, "lomax": 2.5},
         )
-        r_met = client.get(
+        r_met = _safe(client,
             "https://api.met.no/weatherapi/locationforecast/2.0/compact",
             params={"lat": STATION["lat_deg"], "lon": STATION["lon_deg"]},
             headers={"User-Agent": USER_AGENT},
@@ -147,65 +161,28 @@ def main() -> None:
     print("next_culmination:", json.dumps(iss.get("next_culmination") or {}, ensure_ascii=False))
     print("tle_epoch:", iss.get("tle_epoch"))
 
-    # --- Case A: real aircraft ---
+    now_iso = datetime.now(timezone.utc).isoformat()
+    # --- Case A: catalog-synthetic detection at a live ADS-B aircraft position (NOT forced) ---
     if chosen:
-        det_a = {
-            "id": "det_live_aircraft",
-            "t": datetime.now(timezone.utc).isoformat(),
-            "az_deg": chosen["az_deg"],
-            "el_deg": chosen["el_deg"],
-            "frames": 40,
-            "duration_s": 12.0,
-            "single_camera": True,
-            "force_h1": True,
-            "adsb_aircraft": chosen,
-            "callsign_hint": chosen.get("flight") or "",
-        }
-        modo_a = "experimento"
+        det_a = {"id": "det_cat_aircraft", "origen": "sintetica_desde_catalogo", "t": now_iso,
+                 "az_deg": chosen["az_deg"], "el_deg": chosen["el_deg"], "frames": 40}
+        res_a = evaluate_detection(det_a, modo="experimento")
     else:
-        det_a = {
-            "id": "det_live_aircraft",
-            "t": datetime.now(timezone.utc).isoformat(),
-            "az_deg": 0.0,
-            "el_deg": 0.0,
-            "frames": 0,
-            "note": "PENDIENTE_DE_VERIFICACION: no airborne target",
-        }
-        modo_a = "experimento"
-    res_a = evaluate_detection(det_a, modo=modo_a)
-
-    # --- Case B: real ISS at culmination time ---
+        res_a = {"id": "det_cat_aircraft", "resultado": "PENDIENTE_DE_VERIFICACION_sin_aeronave", "excluido_por": "", "evidencia": "E0"}
+    # --- Case B: catalog-synthetic detection at SGP4 culmination (NOT forced; tree recomputes SGP4) ---
     culm = iss.get("next_culmination") or {}
     if culm:
-        det_b = {
-            "id": "det_live_iss",
-            "t": culm["t_utc"],
-            "az_deg": culm["az_deg"],
-            "el_deg": culm["el_deg"],
-            "frames": 180,
-            "duration_s": 300.0,
-            "norad_hint": 25544,
-            "force_h2": True,
-            "single_camera": True,
-        }
+        det_b = {"id": "det_cat_iss", "origen": "sintetica_desde_catalogo", "t": culm["t_utc"],
+                 "az_deg": culm["az_deg"], "el_deg": culm["el_deg"], "frames": 180, "norad_hint": 25544}
         res_b = evaluate_detection(det_b, modo="experimento")
     else:
-        res_b = {"id": "det_live_iss", "resultado": "PENDIENTE_DE_VERIFICACION", "excluido_por": ""}
-
-    # --- Case C: synthetic unidentified SIMULACION ---
-    det_c = {
-        "id": "det_sim_fani",
-        "t": datetime.now(timezone.utc).isoformat(),
-        "az_deg": 42.0,
-        "el_deg": 55.0,
-        "frames": 30,
-        "duration_s": 25.0,
-        "single_camera": True,
-        "trajectory_linear": False,
-    }
+        res_b = {"id": "det_cat_iss", "resultado": "PENDIENTE_DE_VERIFICACION", "excluido_por": "", "evidencia": "E0"}
+    # --- Case C: SIMULACION unidentified ---
+    det_c = {"id": "det_sim_fani", "origen": "simulacion", "t": now_iso, "az_deg": 42.0, "el_deg": 55.0,
+             "frames": 30, "duration_s": 25.0, "trajectory_linear": False}
     res_c = evaluate_detection(det_c, modo="simulacion")
 
-    ecef = wgs84_to_ecef(STATION["lat_deg"], STATION["lon_deg"], STATION["h_m"])
+    ecef = wgs84_to_ecef(STATION["lat_deg"], STATION["lon_deg"], STATION["h_ell_m"])
     for res in (res_a, res_b, res_c):
         if isinstance(res, dict) and "resultado" in res:
             lora = pack_lora_uplink(res, ecef)
@@ -220,7 +197,7 @@ def main() -> None:
             "station": STATION,
             "hardware": HARDWARE,
             "equations": equations_doc(),
-            "note": "Aircraft and ISS from live APIs; FANI case is SIMULACION only.",
+            "note": "Casos A/B: detecciones sinteticas desde catalogo (validacion de pipeline, no observacion, max E2). Caso C: SIMULACION.",
         },
         "live_api_table": table,
         "real_aircraft": {
@@ -236,23 +213,29 @@ def main() -> None:
             "tle_epoch": iss.get("tle_epoch"),
             "tle_fuente": iss.get("tle_fuente"),
             "next_culmination": culm,
+            "pases": iss.get("pases") or [],
+            "tle_age_h": iss.get("tle_age_h"),
             "events_count": len(iss.get("events") or []),
         },
         "ecef_station": {
             **ecef,
             "input_sha256": sha256_canonical(
-                {"lat_deg": STATION["lat_deg"], "lon_deg": STATION["lon_deg"], "h_m": STATION["h_m"]}
+                {"lat_deg": STATION["lat_deg"], "lon_deg": STATION["lon_deg"], "h_ell_m": STATION["h_ell_m"]}
             ),
             "coord_status": STATION["coord_status"],
         },
         "detecciones": [res_a, res_b, res_c],
     }
+    stamp = datetime.now(MADRID).strftime("%Y%m%dT%H%M%S")
+    run_file = RUNS / f"live_cycle_{stamp}.json"
+    run_file.write_text(json.dumps(cycle, ensure_ascii=False, indent=2))
     OUT.write_text(json.dumps(cycle, ensure_ascii=False, indent=2))
+    print("run file:", run_file)
     print("\n=== CYCLE SUMMARY ===")
     for d in cycle["detecciones"]:
         print(
             f"{d.get('id')}: excluido_por={d.get('excluido_por')!r} "
-            f"resultado={d.get('resultado')} evidencia={d.get('evidencia')} modo={d.get('modo')}"
+            f"origen={d.get('origen')} resultado={d.get('resultado')} evidencia={d.get('evidencia')} modo={d.get('modo')}"
         )
     print(f"\nWrote {OUT}")
 

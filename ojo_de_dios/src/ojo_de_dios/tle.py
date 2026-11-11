@@ -34,9 +34,15 @@ def fetch_celestrak_tle(norad: int = 25544, force: bool = False) -> dict[str, An
 
     url_json = f"https://celestrak.org/NORAD/elements/gp.php?CATNR={norad}&FORMAT=json"
     url_tle = f"https://celestrak.org/NORAD/elements/gp.php?CATNR={norad}&FORMAT=tle"
-    with httpx.Client(timeout=30.0, headers={"User-Agent": USER_AGENT}, follow_redirects=True) as client:
-        r_json = client.get(url_json)
-        r_tle = client.get(url_tle)
+    class _E:
+        def __init__(self, e):
+            self.status_code = f"error:{type(e).__name__}"
+    try:
+        with httpx.Client(timeout=httpx.Timeout(15.0, connect=5.0), headers={"User-Agent": USER_AGENT}, follow_redirects=True) as client:
+            r_json = client.get(url_json)
+            r_tle = client.get(url_tle)
+    except httpx.HTTPError as e:
+        r_json = r_tle = _E(e)
     if r_json.status_code != 200 or r_tle.status_code != 200:
         # fall back to local
         if CACHE_FILE.exists():
@@ -44,6 +50,7 @@ def fetch_celestrak_tle(norad: int = 25544, force: bool = False) -> dict[str, An
             cached["ok"] = True
             cached["stale"] = True
             cached["fuente"] = "celestrak|local_stale"
+            cached["cache_age_s"] = round(time.time() - cached.get("_cached_at", 0), 1)
             cached["http_status_json"] = r_json.status_code
             cached["http_status_tle"] = r_tle.status_code
             return cached
@@ -91,13 +98,14 @@ def predict_pass(
     norad: int = 25544,
     hours: float = 24.0,
     min_el_deg: float = 10.0,
+    sun_alt_max_deg: float = -6.0,
     lat: float | None = None,
     lon: float | None = None,
     h_m: float | None = None,
 ) -> dict[str, Any]:
     lat = STATION["lat_deg"] if lat is None else lat
     lon = STATION["lon_deg"] if lon is None else lon
-    h_m = STATION["h_m"] if h_m is None else h_m
+    h_m = STATION["h_ell_m"] if h_m is None else h_m
     sat, meta = _satellite_from_cache(norad)
     ts = LOADER.timescale()
     station = wgs84.latlon(lat, lon, elevation_m=h_m)
@@ -126,15 +134,35 @@ def predict_pass(
         if int(ei) == 1 and first_culm is None:
             first_culm = row
 
+    from .visibility import classify_passes
+    passes = classify_passes(sat, lat, lon, h_m, hours=hours, min_el_deg=min_el_deg, sun_alt_max_deg=sun_alt_max_deg)
+    epoch_s = (meta.get("gp") or {}).get("EPOCH", "")
+    tle_age_h = None
+    if epoch_s:
+        ep = datetime.fromisoformat(epoch_s).replace(tzinfo=timezone.utc)
+        tle_age_h = round((datetime.now(timezone.utc) - ep).total_seconds() / 3600.0, 2)
+    for ps in passes:
+        cu = datetime.fromisoformat(ps["culm_utc"].replace("Z", "+00:00"))
+        dt_d = (cu - ep).total_seconds() / 86400.0 if epoch_s else None
+        ps["dias_desde_epoch_tle"] = None if dt_d is None else round(dt_d, 2)
+        ps["confianza_orbita"] = "alta_<=2d" if dt_d is not None and dt_d <= 2 else "reducida_>2d_recalcular"
     # topocentric now
     now_top = (sat - station).at(t0)
     n_alt, n_az, n_dist = now_top.altaz()
     return {
         "ok": True,
-        "modo": "experimento",
+        "modo": "calculo_catalogo",
         "norad": norad,
         "nombre": (meta.get("gp") or {}).get("OBJECT_NAME", ""),
         "tle_epoch": (meta.get("gp") or {}).get("EPOCH", ""),
+        "tle_epoch_utc": ((meta.get("gp") or {}).get("EPOCH", "") + "Z") if (meta.get("gp") or {}).get("EPOCH") else "",
+        "tle_age_h": tle_age_h,
+        "tle_stale": tle_age_h is None or tle_age_h > 72,
+        "tle_cache_hit": bool(meta.get("cache_hit")),
+        "pases": passes,
+        "pases_visibles_opticos": [x for x in passes if x["clase"] == "potencialmente_visible_optico"],
+        "criterio_visibilidad": {"min_el_deg": min_el_deg, "sun_alt_max_deg": sun_alt_max_deg, "satelite_iluminado": True, "muestreo_s": 10, "brillo": "no_calculado"},
+        "nota_events": "events = geometria pura (>= min_el_deg); NO implica visibilidad optica",
         "tle_fuente": meta.get("fuente", ""),
         "tle_http_status": meta.get("http_status", meta.get("http_status_json", "")),
         "station": {
@@ -167,7 +195,7 @@ def satellite_azel_at(
 ) -> dict[str, Any]:
     lat = STATION["lat_deg"] if lat is None else lat
     lon = STATION["lon_deg"] if lon is None else lon
-    h_m = STATION["h_m"] if h_m is None else h_m
+    h_m = STATION["h_ell_m"] if h_m is None else h_m
     sat, meta = _satellite_from_cache(norad)
     ts = LOADER.timescale()
     if t_utc.tzinfo is None:
@@ -175,7 +203,13 @@ def satellite_azel_at(
     t = ts.from_datetime(t_utc.astimezone(timezone.utc))
     station = wgs84.latlon(lat, lon, elevation_m=h_m)
     alt, az, dist = (sat - station).at(t).altaz()
+    try:
+        from .astro import _ephemeris
+        sunlit = bool(sat.at(t).is_sunlit(_ephemeris()))
+    except Exception:  # noqa: BLE001
+        sunlit = None
     return {
+        "sunlit": sunlit,
         "norad": norad,
         "t_utc": t.utc_iso(),
         "az_deg": float(az.degrees),

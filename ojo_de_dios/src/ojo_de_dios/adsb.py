@@ -10,7 +10,9 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from .config import CACHE_DIR, STATION, USER_AGENT
-from .math_geo import bearing_deg, elevation_from_range_alt_deg, haversine_km
+import math
+
+from .math_geo import bearing_deg, ecef_to_enu_azel, haversine_km
 
 CACHE_FILE = CACHE_DIR / "adsb.json"
 MADRID = ZoneInfo("Europe/Madrid")
@@ -25,21 +27,27 @@ def _normalize_aircraft(raw: dict[str, Any], station_lat: float, station_lon: fl
     lon = raw.get("lon")
     if lat is None or lon is None:
         return {}
-    alt = raw.get("alt_baro", raw.get("alt_geom", raw.get("baro_altitude")))
     on_ground = raw.get("on_ground")
-    if alt == "ground":
-        alt_ft = 0.0
+    if raw.get("alt_baro") == "ground":
         on_ground = True
-    else:
+    alt_ft, datum = None, ""
+    for key, dat in (("alt_geom", "geometrica_wgs84_elipsoidal"), ("geo_altitude_ft", "geometrica_wgs84_elipsoidal"),
+                     ("alt_baro", "barometrica_presion_estandar_no_geometrica"), ("baro_altitude", "barometrica_presion_estandar_no_geometrica")):
+        v = raw.get(key)
         try:
-            alt_ft = float(alt) if alt is not None else None
+            v = float(v)
         except (TypeError, ValueError):
-            alt_ft = None
+            continue
+        if math.isfinite(v):
+            alt_ft, datum = v, dat
+            break
     dist_km = haversine_km(station_lat, station_lon, float(lat), float(lon))
     az = bearing_deg(station_lat, station_lon, float(lat), float(lon))
     el = None
+    slant_km = None
     if alt_ft is not None and not on_ground:
-        el = elevation_from_range_alt_deg(dist_km * 1000.0, alt_ft * 0.3048)
+        geo = ecef_to_enu_azel(station_lat, station_lon, STATION["h_ell_m"], float(lat), float(lon), alt_ft * 0.3048)
+        az, el, slant_km = geo["az_deg"], geo["el_deg"], geo["slant_m"] / 1000.0
     flight = (raw.get("flight") or raw.get("callsign") or "").strip()
     return {
         "hex": (raw.get("hex") or raw.get("icao24") or "").strip().lower(),
@@ -47,6 +55,9 @@ def _normalize_aircraft(raw: dict[str, Any], station_lat: float, station_lon: fl
         "lat": float(lat),
         "lon": float(lon),
         "alt_ft": alt_ft,
+        "alt_datum": datum,
+        "alt_incertidumbre": "baro_vs_geom_puede_diferir_cientos_de_ft" if datum.startswith("barometrica") else "",
+        "slant_km": None if slant_km is None else round(slant_km, 3),
         "on_ground": bool(on_ground) if on_ground is not None else False,
         "gs_kt": raw.get("gs", raw.get("velocity")),
         "track_deg": raw.get("track", raw.get("true_track")),
@@ -57,7 +68,7 @@ def _normalize_aircraft(raw: dict[str, Any], station_lat: float, station_lon: fl
     }
 
 
-def _fetch_adsb_lol(client: httpx.Client, lat: float, lon: float, radius_nm: float) -> dict[str, Any]:
+def _fetch_adsb_lol_raw(client: httpx.Client, lat: float, lon: float, radius_nm: float) -> dict[str, Any]:
     url = f"https://api.adsb.lol/v2/point/{lat}/{lon}/{int(radius_nm)}"
     resp = client.get(url)
     if resp.status_code != 200:
@@ -78,7 +89,7 @@ def _fetch_adsb_lol(client: httpx.Client, lat: float, lon: float, radius_nm: flo
     }
 
 
-def _fetch_opensky(client: httpx.Client, lat: float, lon: float, radius_nm: float) -> dict[str, Any]:
+def _fetch_opensky_raw(client: httpx.Client, lat: float, lon: float, radius_nm: float) -> dict[str, Any]:
     # approximate bounding box: 1 deg lat ~ 111 km; 1 nm = 1.852 km
     ddeg = (radius_nm * 1.852) / 111.0
     params = {
@@ -101,6 +112,7 @@ def _fetch_opensky(client: httpx.Client, lat: float, lon: float, radius_nm: floa
             "lon": s[5],
             "lat": s[6],
             "baro_altitude": None if s[7] is None else float(s[7]) / 0.3048,  # m → ft
+            "geo_altitude_ft": None if len(s) < 14 or s[13] is None else float(s[13]) / 0.3048,
             "on_ground": s[8],
             "velocity": None if s[9] is None else float(s[9]) * 1.94384,  # m/s → kt
             "true_track": s[10],
@@ -119,7 +131,7 @@ def _fetch_opensky(client: httpx.Client, lat: float, lon: float, radius_nm: floa
     }
 
 
-def _fetch_airplanes_live(client: httpx.Client, lat: float, lon: float, radius_nm: float) -> dict[str, Any]:
+def _fetch_airplanes_live_raw(client: httpx.Client, lat: float, lon: float, radius_nm: float) -> dict[str, Any]:
     url = f"https://api.airplanes.live/v2/point/{lat}/{lon}/{int(radius_nm)}"
     resp = client.get(url)
     if resp.status_code != 200:
@@ -158,7 +170,7 @@ def get_adsb(lat: float | None = None, lon: float | None = None, radius_nm: floa
             cached["cache_age_s"] = round(age, 1)
             return cached
 
-    with httpx.Client(timeout=25.0, headers={"User-Agent": USER_AGENT}, follow_redirects=True) as client:
+    with httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0), headers={"User-Agent": USER_AGENT}, follow_redirects=True) as client:
         result = _fetch_adsb_lol(client, lat, lon, radius_nm)
         fallbacks = [{"fuente": "adsb_lol", "http_status": result.get("http_status"), "ok": result.get("ok")}]
         if not result.get("ok"):
@@ -226,3 +238,24 @@ def crosscheck(
             "EZY95FN" in (a.get("flight") or "").upper().replace(" ", "") for a in (snap.get("aircraft") or [])
         ),
     }
+
+
+def _fetch_adsb_lol(client, lat, lon, radius_nm):
+    try:
+        return _fetch_adsb_lol_raw(client, lat, lon, radius_nm)
+    except httpx.HTTPError as e:
+        return {"ok": False, "http_status": f"error:{type(e).__name__}", "fuente": "adsb_lol", "aircraft": [], "error": str(e)[:200]}
+
+
+def _fetch_opensky(client, lat, lon, radius_nm):
+    try:
+        return _fetch_opensky_raw(client, lat, lon, radius_nm)
+    except httpx.HTTPError as e:
+        return {"ok": False, "http_status": f"error:{type(e).__name__}", "fuente": "opensky", "aircraft": [], "error": str(e)[:200]}
+
+
+def _fetch_airplanes_live(client, lat, lon, radius_nm):
+    try:
+        return _fetch_airplanes_live_raw(client, lat, lon, radius_nm)
+    except httpx.HTTPError as e:
+        return {"ok": False, "http_status": f"error:{type(e).__name__}", "fuente": "airplanes_live", "aircraft": [], "error": str(e)[:200]}

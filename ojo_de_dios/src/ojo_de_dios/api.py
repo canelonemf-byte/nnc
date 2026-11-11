@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, Query
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
 
 from . import adsb as adsb_mod
 from . import meteo as meteo_mod
@@ -22,23 +22,30 @@ app = FastAPI(title="Ojo de Dios / NNC Consola", version="2.0.0")
 
 
 class EcefAuditIn(BaseModel):
-    lat_deg: float
-    lon_deg: float
-    h_m: float = 0.0
+    model_config = ConfigDict(allow_inf_nan=False, extra="forbid")
+    lat_deg: float = Field(ge=-90, le=90)
+    lon_deg: float = Field(ge=-180, le=180)
+    h_m: float = Field(default=0.0, ge=-500, le=1.0e6, description="altura ELIPSOIDAL WGS84 (m)")
     t: str = ""
     id: str = ""
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
 class HypothesesIn(BaseModel):
-    id: str = ""
-    t: str = ""
-    az_deg: float
-    el_deg: float
-    duration_s: Optional[float] = None
-    frames: int = 0
+    model_config = ConfigDict(allow_inf_nan=False, extra="forbid")
+    id: str = Field(default="", max_length=128)
+    t: str = Field(default="", max_length=64)
+    az_deg: float = Field(ge=0, lt=360)
+    el_deg: float = Field(ge=-90, le=90)
+    duration_s: Optional[float] = Field(default=None, ge=0, le=86400)
+    frames: int = Field(default=0, ge=0, le=10_000_000)
+    camaras_coincidentes: int = Field(default=0, ge=0, le=16)
+    distance_m: Optional[float] = Field(default=None, gt=0)
+    distance_err_m: Optional[float] = Field(default=None, ge=0)
+    accel_err_g: Optional[float] = Field(default=None, ge=0)
+    fuente_independiente: bool = False
+    revision_externa: bool = False
     single_frame: bool = False
-    single_camera: bool = True
     artefacto_sensor: bool = False
     callsign_hint: str = ""
     norad_hint: Optional[int] = None
@@ -48,11 +55,13 @@ class HypothesesIn(BaseModel):
     wind_drift_error_pct: Optional[float] = None
     parallax_high: Optional[bool] = None
     size_angular_incoherent: bool = False
-    trajectory_linear: bool = False
-    optical_geometry_coherent: bool = False
+    trajectory_linear: Optional[bool] = None
+    optical_geometry_coherent: Optional[bool] = None
     accel_g: Optional[float] = None
-    spectral_anomaly: bool = False
+    spectral_anomaly: Optional[bool] = None
     modo: str = "experimento"
+    origen: str = ""
+    t_sync: bool = False
 
 
 @app.get("/api/v1/status")
@@ -138,8 +147,11 @@ def radar(t: str = Query(default="")) -> dict[str, Any]:
 def hypotheses_check(body: HypothesesIn) -> dict[str, Any]:
     det = body.model_dump()
     modo = det.pop("modo", "experimento")
-    result = evaluate_detection(det, modo=modo)
-    ecef = wgs84_to_ecef(STATION["lat_deg"], STATION["lon_deg"], STATION["h_m"])
+    try:
+        result = evaluate_detection(det, modo=modo)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    ecef = wgs84_to_ecef(STATION["lat_deg"], STATION["lon_deg"], STATION["h_ell_m"])
     lora = pack_lora_uplink(result, ecef)
     ags = ags_core_supervisor_message(result, lora)
     result["ags_core"] = ags["ags_core"]
@@ -160,8 +172,8 @@ def meteo(t: str = Query(default=""), force: bool = False) -> dict[str, Any]:
 
 
 @app.get("/api/v1/tle/pass")
-def tle_pass(norad: int = 25544, t: str = Query(default=""), hours: float = 24.0, min_el_deg: float = 10.0) -> dict[str, Any]:
-    out = tle_mod.predict_pass(norad=norad, hours=hours, min_el_deg=min_el_deg)
+def tle_pass(norad: int = Query(default=25544, ge=1, le=999999), t: str = Query(default=""), hours: float = Query(default=24.0, gt=0, le=72), min_el_deg: float = Query(default=10.0, ge=0, le=89), sun_alt_max_deg: float = Query(default=-6.0, ge=-18, le=0)) -> dict[str, Any]:
+    out = tle_mod.predict_pass(norad=norad, hours=hours, min_el_deg=min_el_deg, sun_alt_max_deg=sun_alt_max_deg)
     STATE.sources_last["tle"] = {
         "fuente": out.get("tle_fuente"),
         "http_status": out.get("tle_http_status"),
@@ -175,9 +187,9 @@ def tle_pass(norad: int = 25544, t: str = Query(default=""), hours: float = 24.0
 @app.get("/api/v1/adsb/crosscheck")
 def adsb_crosscheck(
     t: str = Query(default=""),
-    az: float = Query(default=0.0),
-    el: float = Query(default=0.0),
-    r: float = Query(default=50.0, description="radius NM"),
+    az: float = Query(default=0.0, ge=0, lt=360),
+    el: float = Query(default=0.0, ge=-90, le=90),
+    r: float = Query(default=50.0, gt=0, le=250, description="radius NM"),
 ) -> dict[str, Any]:
     out = adsb_mod.crosscheck(t_iso=t or datetime.now(timezone.utc).isoformat(), az_deg=az, el_deg=el, radius_nm=r)
     STATE.sources_last["adsb"] = {
