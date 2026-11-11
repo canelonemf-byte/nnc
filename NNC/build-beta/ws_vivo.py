@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""WebSocket de tráfico cooperativo. No etiqueta FANI. Silencio no es objeto."""
+"""WebSocket de tráfico cooperativo + HTTP de la vista Ojo de Dios. No etiqueta FANI. Silencio no es objeto.
+
+Autoría: Lázaro López Paz, El Prat de Llobregat, Barcelona, España, con asistencia IA.
+Rutas HTTP (solo GET):
+  /  /radar.html  /index.html  /dashboard_3d.html     páginas de la beta (lista blanca)
+  /api/ojo?radio_km=&alt_min_ft=&alt_max_ft=&el_min_deg=&edad_max_s=   vista Ojo de Dios (JSON)
+  /api/ojo/historial?n=50                              historial JSONL local
+  /api/ojo/salud                                       módulo ojo_de_dios disponible o no
+  /ws/flujo                                            WebSocket (sin cambios de formato)
+Arranque (python con httpx+skyfield, p. ej. el venv de ojo_de_dios; módulo vía OJO_DE_DIOS_SRC
+o, por defecto, <repo>/ojo_de_dios/src):
+  NNC_WS_PORT=8765 python ws_vivo.py
+"""
 import base64
 import hashlib
 import json
@@ -10,6 +22,7 @@ import threading
 import time
 import urllib.request
 from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlsplit
 
 HOST = os.environ.get("NNC_WS_HOST", "127.0.0.1")
 PORT = int(os.environ.get("NNC_WS_PORT", "8765"))
@@ -20,23 +33,77 @@ ISS = "https://api.wheretheiss.at/v1/satellites/25544"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RADAR = os.path.join(HERE, "radar.html")
+PAGINAS = {"/": "radar.html", "/radar.html": "radar.html", "/index.html": "index.html", "/dashboard_3d.html": "dashboard_3d.html",
+           "/ojo_dios.js": "ojo_dios.js"}
+
+try:
+    import ojo_vista  # resuelve ojo_de_dios: OJO_DE_DIOS_SRC -> <repo>/ojo_de_dios/src -> ../ojo_de_dios/src
+except Exception as _e:  # noqa: BLE001
+    ojo_vista = None
+    OJO_ERR = str(_e)[:200]
+else:
+    OJO_ERR = ""
+
+STATUS_TXT = {200: "OK", 404: "Not Found", 405: "Method Not Allowed", 422: "Unprocessable Entity", 500: "Internal Server Error", 503: "Service Unavailable"}
 
 
-def http_radar(conn):
-    try:
-        body = open(RADAR, "rb").read()
-    except Exception:
-        body = b"radar.html no encontrado"
+def http_send(conn, code, body, ctype):
     head = (
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html; charset=utf-8\r\n"
+        f"HTTP/1.1 {code} {STATUS_TXT.get(code, 'OK')}\r\n"
+        f"Content-Type: {ctype}\r\n"
         "Cache-Control: no-store\r\n"
+        "Access-Control-Allow-Origin: *\r\n"
+        "X-Autoria: Lazaro Lopez Paz, El Prat de Llobregat, Barcelona, Espana, con asistencia IA\r\n"
         f"Content-Length: {len(body)}\r\n"
         "Connection: close\r\n\r\n"
     ).encode()
     conn.sendall(head + body)
     conn.close()
+
+
+def http_json(conn, code, obj):
+    http_send(conn, code, json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode(), "application/json; charset=utf-8")
+
+
+def http_radar(conn, name="radar.html"):
+    try:
+        body = open(os.path.join(HERE, name), "rb").read()
+        code = 200
+    except Exception:
+        body, code = (name + " no encontrado").encode(), 404
+    ctype = "application/javascript; charset=utf-8" if name.endswith(".js") else "text/html; charset=utf-8"
+    http_send(conn, code, body, ctype)
+
+
+def http_route(conn, method, target):
+    u = urlsplit(target)
+    path, qs = u.path, parse_qs(u.query, keep_blank_values=True)
+    if method != "GET":
+        return http_json(conn, 405, {"ok": False, "error": "solo GET"})
+    if path in PAGINAS:
+        return http_radar(conn, PAGINAS[path])
+    if path.startswith("/api/ojo"):
+        if ojo_vista is None or not getattr(ojo_vista, "DISPONIBLE", False):
+            return http_json(conn, 503, {"ok": False, "error": "modulo_ojo_de_dios_no_disponible",
+                                         "detalle": OJO_ERR or getattr(ojo_vista, "IMPORT_ERROR", ""),
+                                         "arranque": "pip install -r ojo_de_dios/requirements.txt && python ws_vivo.py (o OJO_DE_DIOS_SRC=...)"})
+        if path == "/api/ojo":
+            code, body = ojo_vista.vista_segura(qs)
+            return http_json(conn, code, body)
+        if path == "/api/ojo/historial":
+            try:
+                n = int((qs.get("n") or ["50"])[0])
+            except ValueError:
+                return http_json(conn, 422, {"ok": False, "error": "n no entero"})
+            return http_json(conn, 200, {"ok": True, "historial": ojo_vista.leer_historial(n), "archivo": str(ojo_vista.HIST_FILE)})
+        if path == "/api/ojo/salud":
+            return http_json(conn, 200, {"ok": True, "disponible": True, "autoria": ojo_vista.AUTORIA, "ojo_src": ojo_vista.OJO_SRC})
+    return http_json(conn, 404, {"ok": False, "error": "ruta no encontrada",
+                                 "rutas": sorted(PAGINAS) + ["/api/ojo", "/api/ojo/historial", "/api/ojo/salud", "/ws/flujo"]})
+
+
 lock = threading.Lock()
+clients = set()  # corregido: en el original no estaba definido (NameError en broadcast/serve)
 latest = {"tipo": "vacio"}
 
 
@@ -129,14 +196,10 @@ def pump():
 
 def handshake(conn, buf):
     head = buf.decode("latin1", "replace")
-    path = head.split("\r\n", 1)[0]
-    if "Upgrade: websocket" not in head and "upgrade: websocket" not in head.lower():
-        if "GET / " in path or "GET /radar.html" in path or path.startswith("GET / "):
-            http_radar(conn)
-            return False
-        if path.startswith("GET /"):
-            http_radar(conn)
-            return False
+    parts = head.split("\r\n", 1)[0].split(" ")
+    method, target = (parts[0], parts[1]) if len(parts) >= 2 else ("", "/")
+    if "upgrade: websocket" not in head.lower():
+        http_route(conn, method, target)
         return False
     key = ""
     for line in head.split("\r\n"):

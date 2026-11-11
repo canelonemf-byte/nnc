@@ -33,14 +33,26 @@ def _save_cache(payload: dict[str, Any]) -> None:
     CACHE_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
+MAX_RETRY_WAIT_S = 16.0
+MAX_TOTAL_WAIT_S = 30.0
+
+
 def _parse_retry_after(resp: httpx.Response) -> float | None:
+    """Retry-After as seconds or HTTP-date; clamped to [0, MAX_RETRY_WAIT_S]."""
     ra = resp.headers.get("Retry-After")
     if not ra:
         return None
     try:
-        return float(ra)
+        v = float(ra)
     except ValueError:
+        try:
+            from email.utils import parsedate_to_datetime
+            v = (parsedate_to_datetime(ra) - datetime.now(timezone.utc)).total_seconds()
+        except Exception:  # noqa: BLE001
+            return None
+    if v != v or v in (float("inf"), float("-inf")):
         return None
+    return max(0.0, min(v, MAX_RETRY_WAIT_S))
 
 
 def _fetch_open_meteo(client: httpx.Client, lat: float, lon: float) -> dict[str, Any]:
@@ -52,8 +64,14 @@ def _fetch_open_meteo(client: httpx.Client, lat: float, lon: float) -> dict[str,
         "timezone": "Europe/Madrid",
     }
     last_err: str = ""
+    waited = 0.0
+    status: Any = ""
     for attempt in range(4):
-        resp = client.get(url, params=params)
+        try:
+            resp = client.get(url, params=params)
+        except httpx.HTTPError as e:
+            return {"ok": False, "http_status": f"error:{type(e).__name__}", "fuente": "open_meteo", "error": str(e)[:200]}
+        status = resp.status_code
         if resp.status_code == 200:
             data = resp.json()
             cur = data.get("current") or {}
@@ -61,6 +79,7 @@ def _fetch_open_meteo(client: httpx.Client, lat: float, lon: float) -> dict[str,
                 "ok": True,
                 "http_status": 200,
                 "fuente": "open_meteo",
+                "naturaleza": "modelo_pronostico_no_observacion",
                 "cloud_cover_pct": cur.get("cloud_cover"),
                 "visibility_m": cur.get("visibility"),
                 "wind_speed_10m": cur.get("wind_speed_10m"),
@@ -73,18 +92,25 @@ def _fetch_open_meteo(client: httpx.Client, lat: float, lon: float) -> dict[str,
         if resp.status_code == 429:
             delay = _parse_retry_after(resp)
             if delay is None:
-                delay = min(2 ** attempt, 16)
+                delay = float(min(2 ** attempt, 16))
+            if waited + delay > MAX_TOTAL_WAIT_S or attempt == 3:
+                last_err = f"429 budget agotado tras {waited:.0f}s"
+                break
             time.sleep(delay)
+            waited += delay
             last_err = f"429 after attempt {attempt}"
             continue
         last_err = f"HTTP {resp.status_code}"
         break
-    return {"ok": False, "http_status": resp.status_code, "fuente": "open_meteo", "error": last_err}
+    return {"ok": False, "http_status": status, "fuente": "open_meteo", "error": last_err, "waited_s": waited}
 
 
 def _fetch_met_norway(client: httpx.Client, lat: float, lon: float) -> dict[str, Any]:
     url = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
-    resp = client.get(url, params={"lat": lat, "lon": lon}, headers={"User-Agent": USER_AGENT})
+    try:
+        resp = client.get(url, params={"lat": round(lat, 4), "lon": round(lon, 4)}, headers={"User-Agent": USER_AGENT})
+    except httpx.HTTPError as e:
+        return {"ok": False, "http_status": f"error:{type(e).__name__}", "fuente": "met_norway", "error": str(e)[:200]}
     if resp.status_code != 200:
         return {"ok": False, "http_status": resp.status_code, "fuente": "met_norway", "error": resp.text[:200]}
     data = resp.json()
@@ -120,17 +146,23 @@ def get_meteo(lat: float | None = None, lon: float | None = None, force: bool = 
             out["cache_age_s"] = round(age, 1)
             return out
 
-    with httpx.Client(timeout=20.0, headers={"User-Agent": USER_AGENT}) as client:
+    with httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0), headers={"User-Agent": USER_AGENT}) as client:
         result = _fetch_open_meteo(client, lat, lon)
+        errors = []
         if not result.get("ok"):
+            errors.append({"fuente": "open_meteo", "http_status": result.get("http_status"), "error": result.get("error", "")})
             result = _fetch_met_norway(client, lat, lon)
+            if not result.get("ok"):
+                errors.append({"fuente": "met_norway", "http_status": result.get("http_status"), "error": result.get("error", "")})
         if not result.get("ok") and cached:
             stale = dict(cached)
             stale["ok"] = True
             stale["stale"] = True
             stale["fuente"] = f"{cached.get('fuente', 'cache')}|stale_cache"
-            stale["fetched_at_madrid"] = _now_iso()
+            stale["cache_age_s"] = round(time.time() - cached.get("_cached_at", 0), 1)
+            stale["original_fetched_at_madrid"] = cached.get("fetched_at_madrid", "")
             stale["cache_hit"] = True
+            stale["errores_fuentes"] = errors
             return stale
 
     result["_cached_at"] = time.time()

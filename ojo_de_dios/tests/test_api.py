@@ -24,7 +24,17 @@ def test_audit_ecef():
 def test_hypotheses_h0():
     r = client.post(
         "/api/v1/hypotheses/check",
-        json={"id": "a", "az_deg": 1, "el_deg": 1, "single_frame": True, "frames": 1, "modo": "simulacion"},
+        json={"id": "a", "az_deg": 1, "el_deg": 1, "artefacto_sensor": True, "frames": 1, "modo": "simulacion"},
     )
     assert r.status_code == 200
     assert r.json()["excluido_por"] == "h0"
+
+
+def test_adverse_inputs_422():
+    for body in ({"az_deg": 400, "el_deg": 1}, {"az_deg": 1, "el_deg": 91}, {"az_deg": 1, "el_deg": 1, "foo": 1},
+                 {"az_deg": 1, "el_deg": 1, "origen": "observacion_optica", "force_h1": True},
+                 {"az_deg": 1, "el_deg": 1, "t": "2026-01-01T00:00:00"}):
+        assert client.post("/api/v1/hypotheses/check", json=body).status_code == 422, body
+    assert client.post("/api/v1/audit/ecef", json={"lat_deg": 91, "lon_deg": 0}).status_code == 422
+    assert client.get("/api/v1/tle/pass", params={"hours": 1000}).status_code == 422
+    assert client.get("/api/v1/adsb/crosscheck", params={"az": -1}).status_code == 422

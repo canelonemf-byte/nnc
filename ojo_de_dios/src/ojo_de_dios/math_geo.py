@@ -125,3 +125,25 @@ def equations_doc() -> dict[str, str]:
             "without measured H_kin: no anomaly claim beyond no_identificado_insuficiente"
         ),
     }
+
+
+def ecef_to_enu_azel(st_lat: float, st_lon: float, st_h_ell_m: float,
+                     tg_lat: float, tg_lon: float, tg_h_ell_m: float) -> dict[str, float]:
+    """
+    Topocentric az/el/slant range via ECEF difference rotated to ENU (curvature included).
+      e = -sin(lam) dX + cos(lam) dY
+      n = -sin(phi)cos(lam) dX - sin(phi)sin(lam) dY + cos(phi) dZ
+      u =  cos(phi)cos(lam) dX + cos(phi)sin(lam) dY + sin(phi) dZ
+      az = atan2(e, n); el = atan2(u, sqrt(e^2+n^2))
+    Heights must be ellipsoidal (WGS84).
+    """
+    a = wgs84_to_ecef(st_lat, st_lon, st_h_ell_m)
+    b = wgs84_to_ecef(tg_lat, tg_lon, tg_h_ell_m)
+    dx, dy, dz = b["x_m"] - a["x_m"], b["y_m"] - a["y_m"], b["z_m"] - a["z_m"]
+    p, l = math.radians(st_lat), math.radians(st_lon)
+    e = -math.sin(l) * dx + math.cos(l) * dy
+    n = -math.sin(p) * math.cos(l) * dx - math.sin(p) * math.sin(l) * dy + math.cos(p) * dz
+    u = math.cos(p) * math.cos(l) * dx + math.cos(p) * math.sin(l) * dy + math.sin(p) * dz
+    return {"az_deg": (math.degrees(math.atan2(e, n)) + 360.0) % 360.0,
+            "el_deg": math.degrees(math.atan2(u, math.hypot(e, n))),
+            "slant_m": math.sqrt(e * e + n * n + u * u)}

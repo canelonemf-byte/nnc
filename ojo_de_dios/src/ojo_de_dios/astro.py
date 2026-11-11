@@ -21,7 +21,7 @@ def _ephemeris():
 def bright_bodies_azel(t_utc: datetime, lat: float | None = None, lon: float | None = None, h_m: float | None = None) -> list[dict[str, Any]]:
     lat = STATION["lat_deg"] if lat is None else lat
     lon = STATION["lon_deg"] if lon is None else lon
-    h_m = STATION["h_m"] if h_m is None else h_m
+    h_m = STATION["h_ell_m"] if h_m is None else h_m
     if t_utc.tzinfo is None:
         t_utc = t_utc.replace(tzinfo=timezone.utc)
     ts = LOADER.timescale()

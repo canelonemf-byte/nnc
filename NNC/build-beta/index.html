@@ -2,8 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"/>
+<link rel="icon" href="data:,"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="author" content="Lázaro López Paz, El Prat de Llobregat, Barcelona, España, con asistencia IA"/>
 <title>NNC Build Beta — Prat de Llobregat</title>
+<!-- Autoría: Lázaro López Paz, El Prat de Llobregat, Barcelona, España, con asistencia IA. -->
 <style>
   :root {
     --bg:#0b1020; --card:#141b30; --line:#2a3558; --txt:#e8eefc;
@@ -45,6 +48,7 @@
 <div style="background:#1a2744; padding:8px; margin:8px; border-radius:8px; border:1px solid #243152;">
   <strong>Fusión NNC + AGs-Core 1.0.0 corregido:</strong>
   <a href="radar.html" style="color:#5ee7ff; margin-left:12px;">Radar Leaflet ADS-B</a>
+  <a href="radar.html#ojo" style="color:#3dd68c; margin-left:12px; font-weight:700;">Ojo de Dios NNC (datos reales, H0–H7)</a>
   <a href="dashboard_3d.html" style="color:#5ee7ff; margin-left:12px;">Dashboard 3D Globe + LoRA</a>
   <span style="color:#8ea0c4; font-size:0.8em;"> (datos sintéticos, conectores NO conectados)</span>
 </div>
@@ -61,12 +65,13 @@
     <p class="note" id="porque" style="margin:.6rem 0 0">Carga un paquete. Cero detecciones. QPU ausente. ISS y EZY95FN siguen explicados.</p>
     <div class="flash" id="flash">UI: malla a volumen y flash. No es sensor.</div>
     <button type="button" class="sec" onclick="modo('ingreso')">Ingreso</button>
-    <button type="button" onclick="modo('ojo')">Ojo dios</button>
+    <button type="button" onclick="modo('ojo')">Comparación GodMode (no sensor)</button>
+    <a href="radar.html#ojo" style="color:#3dd68c; margin-left:.4rem;">→ Ojo de Dios NNC real</a>
   </div>
 
   <div class="card" id="ojo" style="margin-bottom:.8rem">
-    <h2>Ojo dios — vista simultánea</h2>
-    <p class="note">Adaptado del nombre GodMode (smol-ai), no del binario. Tag v1.0.0-beta.10, commit 8ac3ffd. Es un navegador Electron de chats (Cmd+Shift+G). No se ha instalado el dmg/exe/AppImage: no corre aquí y no mide ECEF.</p>
+    <h2>Comparación GodMode (smol-ai) — no es el Ojo de Dios NNC</h2>
+    <p class="note"><b>Esto no es un sensor ni el Ojo de Dios NNC.</b> El Ojo de Dios real (ADS-B, ISS/TLE, meteo, cadena H0–H7, E0–E6) está en <a href="radar.html#ojo" style="color:#3dd68c">radar.html#ojo</a>. Aquí solo se comparan dos paquetes de ejemplo. Adaptado del nombre GodMode (smol-ai), no del binario. Tag v1.0.0-beta.10, commit 8ac3ffd. Es un navegador Electron de chats (Cmd+Shift+G). No se ha instalado el dmg/exe/AppImage: no corre aquí y no mide ECEF.</p>
     <table id="cmp"></table>
     <p class="note" id="ojoNota" style="margin-top:.5rem"></p>
   </div>
@@ -115,7 +120,7 @@
     <textarea id="pkt" spellcheck="false"></textarea>
     <button type="button" onclick="auditar()">Auditar ingreso</button>
     <button type="button" class="sec" onclick="cargarRechazo()">Fixture rechazado</button>
-    <button type="button" class="sec" onclick="cargarSintetico()">Sintético Prat (E3)</button>
+    <button type="button" class="sec" onclick="cargarSintetico()">Sintético Prat (evento E0, aritmética E3)</button>
     <button type="button" class="sec" onclick="bajar()">Descargar informe</button>
   </div>
 
@@ -138,6 +143,7 @@
     </div>
   </div>
   <p class="note" style="margin:1rem 0">Build Beta local · aritmética E3 · evento E0 · prohibido FANI_confirmado</p>
+  <p class="note" style="margin:0 0 1rem">Autoría: Lázaro López Paz, El Prat de Llobregat, Barcelona, España, con asistencia IA.</p>
 </div>
 <script>
 const G0=9.80665, MACH_TERMICO=5, V_NIVEL=35, V_PICADO=110;
@@ -341,7 +347,7 @@ function ojo(){
     fila3("ISS / EZY95FN", "explicados, no este paquete", "no aplica")+
     fila3("GodMode binario", "no instalado", "no instalado");
   document.getElementById("ojoNota").textContent =
-    "E0–E6: idea, hipotesis, prediccion, simulacion, experimento, replica, consolidado. Este ojo es E0 de integracion y E3 de aritmetica. GodMode no aporta evidencia atmosferica. H0–H7 siguen cerradas en el fixture.";
+    "E0–E6: idea, hipotesis, prediccion, simulacion, experimento, replica, consolidado. Esta comparación es E0 de integracion y E3 de aritmetica. GodMode no aporta evidencia atmosferica. H0–H7 siguen cerradas en el fixture. El Ojo de Dios NNC con datos reales está en radar.html#ojo.";
 }
 function cargarRechazo(){ poner(FIXTURE); }
 function cargarSintetico(){

@@ -16,6 +16,9 @@ STATION: dict[str, Any] = {
     "lat_deg": 41.3275,
     "lon_deg": 2.0950,
     "h_m": 10.0,
+    "h_datum": "aprox_sobre_nivel_del_mar_no_elipsoidal",
+    "geoid_n_m": 49.0,  # EGM96 aprox. Barcelona; PENDIENTE_DE_VERIFICACION
+    "h_ell_m": 59.0,  # h_m + geoid_n_m (WGS84 elipsoidal aprox.)
     "coord_status": "PENDIENTE_DE_VERIFICACION",
     "coord_note": "Approximate town-centre WGS84; not a real surveyed NNC station.",
     "timezone": "Europe/Madrid",
