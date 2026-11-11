@@ -27,3 +27,18 @@ jobs:
           else
             echo "Sin directorio tests"
           fi
+  pytest_ojo_de_dios:
+    # Tests reales de Ojo de Dios y de la vista NNC (fallan el CI si fallan).
+    # Autoría: Lázaro López Paz, El Prat de Llobregat, Barcelona, España, con asistencia IA.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: ojo_de_dios/requirements.txt
+      - name: Instalar dependencias
+        run: python -m pip install -q -r ojo_de_dios/requirements.txt
+      - name: pytest (ojo_de_dios + NNC/build-beta)
+        run: python -m pytest -q -p no:cacheprovider
