@@ -316,7 +316,7 @@ document.getElementById('nnc-live-body').innerHTML=h;}catch(e){document.getEleme
 nncLive();setInterval(nncLive,15000);
 </script>
 
-    <div id="globe3DContainer"></div>
+    <div id="globe3DContainer" role="region" aria-label="Globo terrestre 3D interactivo"></div>
     <div id="satTooltip" class="sat-tooltip"></div>
 
     <!-- Top Navbar -->
@@ -360,8 +360,8 @@ nncLive();setInterval(nncLive,15000);
         </div>
 
         <div class="ge-search-box">
-            <span style="color: #64748b;">🔍</span>
-            <input type="text" class="ge-search-input" id="geSearch" placeholder="Buscar coordenadas (ej: 41.38, 2.16 o Barcelona)..." onkeydown="handleSearch(event)">
+            <span style="color: #64748b;" aria-hidden="true">🔍</span>
+            <input type="text" class="ge-search-input" id="geSearch" aria-label="Buscar coordenadas o lugar" placeholder="Buscar coordenadas (ej: 41.38, 2.16 o Barcelona)..." onkeydown="handleSearch(event)">
         </div>
 
         <div class="status-badge-live">
@@ -426,12 +426,12 @@ nncLive();setInterval(nncLive,15000);
     </div>
 
     <!-- Right Floating Navigation Controls -->
-    <div class="ge-nav-controls">
-        <button class="ge-nav-btn" title="Resetear Norte" onclick="resetNorth()">🧭</button>
-        <button class="ge-nav-btn" title="Acercar (Zoom In)" onclick="zoomCamera(-1.5)">＋</button>
-        <button class="ge-nav-btn" title="Alejar (Zoom Out)" onclick="zoomCamera(1.5)">－</button>
-        <button class="ge-nav-btn" title="Inclinación 3D (Tilt)" onclick="toggleTilt()">📐</button>
-        <button class="ge-nav-btn" title="Alternar Vista 2D / 3D" onclick="toggle2D3D()">🗺️</button>
+    <div class="ge-nav-controls" role="toolbar" aria-label="Controles de navegación del globo">
+        <button type="button" class="ge-nav-btn" title="Resetear Norte" aria-label="Resetear norte" onclick="resetNorth()"><span aria-hidden="true">🧭</span></button>
+        <button type="button" class="ge-nav-btn" title="Acercar (Zoom In)" aria-label="Acercar" onclick="zoomCamera(-1.5)"><span aria-hidden="true">＋</span></button>
+        <button type="button" class="ge-nav-btn" title="Alejar (Zoom Out)" aria-label="Alejar" onclick="zoomCamera(1.5)"><span aria-hidden="true">－</span></button>
+        <button type="button" class="ge-nav-btn" title="Inclinación 3D (Tilt)" aria-label="Alternar inclinación 3D" onclick="toggleTilt()"><span aria-hidden="true">📐</span></button>
+        <button type="button" class="ge-nav-btn" title="Alternar Vista 2D / 3D" aria-label="Alternar vista 2D o 3D" onclick="toggle2D3D()"><span aria-hidden="true">🗺️</span></button>
     </div>
 
     <!-- Mini Radar PPI 2D -->
@@ -440,7 +440,7 @@ nncLive();setInterval(nncLive,15000);
             <span>📡 BARRIDO RADAR PPI 360°</span>
             <span style="color:#34d399;">LIVE</span>
         </div>
-        <canvas id="miniRadarCanvas" width="165" height="165"></canvas>
+        <canvas id="miniRadarCanvas" width="165" height="165" role="img" aria-label="Mini radar PPI de barrido 360 grados (animación)"></canvas>
     </div>
 
     <!-- Satellite & Target Telemetry Card -->
@@ -521,6 +521,9 @@ nncLive();setInterval(nncLive,15000);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
+            // Nombre accesible del lienzo WebGL (auditoría REA M10)
+            renderer.domElement.setAttribute('role', 'img');
+            renderer.domElement.setAttribute('aria-label', 'Globo terrestre 3D con satélites, capas y datos en vivo');
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
