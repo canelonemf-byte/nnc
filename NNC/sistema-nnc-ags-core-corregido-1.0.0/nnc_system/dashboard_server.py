@@ -18,6 +18,14 @@ from core import live_sources
 
 PORT = int(os.getenv("PORT", "8080"))
 
+
+def dashboard_bind_host() -> str:
+    """Host de escucha: 127.0.0.1 por defecto. Configurable con NNC_DASHBOARD_HOST.
+    Una cadena vacía no se interpreta como 0.0.0.0; hay que pedir 0.0.0.0 explícitamente."""
+    raw = (os.getenv("NNC_DASHBOARD_HOST", "127.0.0.1") or "").strip()
+    return raw or "127.0.0.1"
+
+
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         request_path = urlsplit(self.path).path
@@ -112,6 +120,29 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     ]
                 }
                 self.wfile.write(json.dumps(heatmap_fallback, indent=2).encode("utf-8"))
+            return
+
+        if request_path == "/health":
+            body = json.dumps({
+                "status": "ok",
+                "service": "nnc-dashboard",
+                "host": dashboard_bind_host(),
+                "port": PORT,
+            }, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if request_path not in ("/", "/index.html"):
+            body = json.dumps({"error": "not_found"}, ensure_ascii=False).encode("utf-8")
+            self.send_response(404)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
             return
 
         # Render HTML Dashboard estilo Google Earth 3D HD Globe + Texturas Satelitales Reales + Satélites Live
@@ -889,7 +920,8 @@ nncLive();setInterval(nncLive,15000);
         self.wfile.write(html_content.encode("utf-8"))
 
 if __name__ == "__main__":
-    print(f"[Dashboard] Iniciando servidor web con visualizador 3D (datos demostrativos; sin conectores live) en http://localhost:{PORT}")
+    host = dashboard_bind_host()
+    print(f"[Dashboard] Iniciando servidor web con visualizador 3D (datos demostrativos; sin conectores live) en http://{host}:{PORT}")
     socketserver.ThreadingTCPServer.allow_reuse_address = True
-    with socketserver.ThreadingTCPServer(("", PORT), DashboardHandler) as httpd:
+    with socketserver.ThreadingTCPServer((host, PORT), DashboardHandler) as httpd:
         httpd.serve_forever()
